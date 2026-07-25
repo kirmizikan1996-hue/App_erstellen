@@ -53,12 +53,15 @@ def fbm(size, base, octaves, rng):
 
 
 def poisson_points(size, count, margin, rng):
-    """Gleichmaessig verteilte Inselzentren (Best-Candidate-Sampling)."""
+    """Inselzentren mit variierender Dichte: manche Regionen bekommen
+    wenige Zentren -> dort entstehen deutlich groessere Inseln."""
+    density = fbm(size, 3, 3, rng)
     pts = [rng.uniform(margin, size - margin, 2)]
     while len(pts) < count:
         cand = rng.uniform(margin, size - margin, (24, 2))
         d = cKDTree(pts).query(cand)[0]
-        pts.append(cand[np.argmax(d)])
+        w = 0.35 + 1.65 * density[cand[:, 0].astype(int), cand[:, 1].astype(int)]
+        pts.append(cand[np.argmax(d * w)])
     return np.array(pts)
 
 
@@ -143,7 +146,7 @@ def find_bridges(seeds, labels, water, rng, extra_ratio=0.3):
             return None
         if labels[ys[min(e + 2, steps - 1)], xs[min(e + 2, steps - 1)]] != b:
             return None
-        pad = 6                 # Bruecke ragt beidseitig aufs Ufer
+        pad = 16                # Bruecke ragt beidseitig weit aufs Ufer
         s2, e2 = max(s - pad, 0), min(e + pad, steps - 1)
         return ((float(xs[s2]), float(ys[s2])), (float(xs[e2]), float(ys[e2])),
                 e - s)
@@ -300,14 +303,16 @@ def draw_bridge(draw, cdraw, p0, p1):
             "angle_deg": math.degrees(math.atan2(dy, dx)), "length": length}
 
 
-def draw_paths(draw, seeds, bridges, labels, size):
-    """Erdpfade: Brueckenenden mit dem Inselzentrum verbinden."""
+def draw_paths(draw, seeds, bridges, labels, size, rng):
+    """Dekorierte Erdpfade: Brueckenenden mit dem Inselzentrum verbinden."""
     ends_per_cell = {}
     for p0, p1, _ in bridges:
         for p in (p0, p1):
             xi = int(min(max(p[0], 0), size - 1))
             yi = int(min(max(p[1], 0), size - 1))
             ends_per_cell.setdefault(int(labels[yi, xi]), []).append(p)
+
+    paths = []
     for cell, ends in ends_per_cell.items():
         cy, cx = seeds[cell]
         for (px, py) in ends:
@@ -318,7 +323,44 @@ def draw_paths(draw, seeds, bridges, labels, size):
                 bx = (1 - t) ** 2 * px + 2 * (1 - t) * t * mx + t * t * cx
                 by = (1 - t) ** 2 * py + 2 * (1 - t) * t * my + t * t * cy
                 pts.append((bx, by))
-            draw.line(pts, fill=PAL["path"], width=7, joint="curve")
+            paths.append(pts)
+
+    # drei Lagen: dunkler Rand, Kernfarbe, heller ausgetretener Mittelstreifen
+    for pts in paths:
+        draw.line(pts, fill=(104, 82, 50), width=11, joint="curve")
+    for pts in paths:
+        draw.line(pts, fill=PAL["path"], width=7, joint="curve")
+    for pts in paths:
+        draw.line(pts, fill=(172, 142, 94), width=3, joint="curve")
+
+    # Dekoration am Wegesrand: Kiesel, Blumen, Grasbueschel
+    flower_cols = [(214, 96, 82), (226, 198, 96), (232, 230, 224)]
+    for pts in paths:
+        for i in range(2, len(pts) - 2, 2):
+            (x0, y0), (x1, y1) = pts[i - 1], pts[i + 1]
+            dx, dy = x1 - x0, y1 - y0
+            n = math.hypot(dx, dy) or 1.0
+            nx, ny = -dy / n, dx / n            # senkrecht zum Weg
+            for side in (1, -1):
+                if rng.random() > 0.55:
+                    continue
+                off = 7 + rng.random() * 4
+                px = pts[i][0] + nx * off * side + rng.normal(0, 1.5)
+                py = pts[i][1] + ny * off * side + rng.normal(0, 1.5)
+                roll = rng.random()
+                if roll < 0.45:                 # Kieselstein
+                    r = 1 + int(rng.integers(2))
+                    draw.ellipse([px - r, py - r, px + r, py + r],
+                                 fill=PAL["stone"])
+                elif roll < 0.65:               # Bluemchen
+                    c = flower_cols[int(rng.integers(3))]
+                    draw.ellipse([px - 1, py - 1, px + 1, py + 1], fill=c)
+                    draw.point((px, py + 2), fill=PAL["grass_dark"])
+                else:                           # Grasbueschel
+                    for gdx in (-2, 0, 2):
+                        draw.line([(px + gdx, py + 2),
+                                   (px + gdx * 1.5, py - 2)],
+                                  fill=PAL["grass_dark"], width=1)
 
 
 def draw_detail(draw, land_ok, size, rng):
@@ -408,10 +450,9 @@ def draw_plaza(draw, block, x, y, r, size, rng):
 
 
 def collect_trees(land_ok, wdist, size, rng):
-    """Dichte Baumreihen an Ufern und am Kartenrand, Cluster im Inneren."""
+    """Baeume nur an Ufern und am Kartenrand: die Inselmitten bleiben frei
+    als Spielflaeche; vereinzelte Baeume dienen als Akzente."""
     border = int(size * 0.022)
-    # Waldcluster-Groesse ist absolut (in Pixeln), nicht relativ zur Karte
-    forest_noise = fbm(size, max(4, size // 230), 3, rng)
     positions = []
     step = 9        # fest, damit die Baumdichte bei jeder Kartengroesse stimmt
     for gy in range(0, size, step):
@@ -422,13 +463,42 @@ def collect_trees(land_ok, wdist, size, rng):
                 continue
             d = wdist[y, x]
             on_border = x < border or y < border or x > size - border or y > size - border
-            near_bank = 4 <= d <= 16
-            in_cluster = forest_noise[y, x] > 0.62 and d > 10
-            p = 0.9 if on_border else (0.55 if near_bank else (0.5 if in_cluster else 0.02))
+            near_bank = 4 <= d <= 14
+            p = 0.9 if on_border else (0.5 if near_bank else 0.006)
             if rng.random() < p:
                 positions.append((x, y, 4 + int(rng.integers(4))))
     positions.sort(key=lambda p: p[1])
     return positions
+
+
+def draw_spawn(draw, block, x, y, r, rng):
+    """Monster-Spawn: niedergetrampelte dunkle Lichtung mit Steinkreis."""
+    angles = np.linspace(0, 2 * math.pi, 20, endpoint=False)
+    wob = 1 + (rng.random(len(angles)) - 0.5) * 0.4
+    patch = [(x + math.cos(a) * r * w, y + math.sin(a) * r * w)
+             for a, w in zip(angles, wob)]
+    draw.polygon(patch, fill=(58, 72, 40))                # dunkles Gras
+    inner = [(x + math.cos(a) * r * w * 0.55, y + math.sin(a) * r * w * 0.55)
+             for a, w in zip(angles, wob)]
+    draw.polygon(inner, fill=(88, 76, 50))                # aufgewuehlte Erde
+    # Steinkreis am Rand
+    n = max(5, int(r / 4))
+    a0 = rng.random() * math.pi
+    for i in range(n):
+        a = a0 + i * 2 * math.pi / n
+        sx = x + math.cos(a) * r * 0.8 + rng.normal(0, 1.5)
+        sy = y + math.sin(a) * r * 0.8 + rng.normal(0, 1.5)
+        sr = 2 + int(rng.integers(2))
+        draw.ellipse([sx - sr, sy - sr, sx + sr, sy + sr],
+                     fill=PAL["stone"], outline=(84, 80, 72))
+    # ein paar helle Knochen-Punkte in der Mitte
+    for _ in range(4):
+        bx = x + rng.normal(0, r * 0.25)
+        by = y + rng.normal(0, r * 0.25)
+        draw.ellipse([bx - 1, by - 1, bx + 2, by + 1], fill=(226, 222, 208))
+    y0, y1 = max(int(y - r * 1.3), 0), min(int(y + r * 1.3), block.shape[0])
+    x0, x1 = max(int(x - r * 1.3), 0), min(int(x + r * 1.3), block.shape[1])
+    block[y0:y1, x0:x1] = True
 
 
 # ---------------------------------------------------------------- main ----
@@ -457,8 +527,8 @@ def generate(size, seed, islands, out_dir):
     collision = Image.fromarray((water * 255).astype(np.uint8))
     cdraw = ImageDraw.Draw(collision)
 
-    print("[5/7] Pfade, Plaetze und Bruecken zeichnen ...")
-    draw_paths(draw, seeds, bridges, labels, size)
+    print("[5/7] Pfade, Plaetze, Spawns und Bruecken zeichnen ...")
+    draw_paths(draw, seeds, bridges, labels, size, rng)
 
     # Besondere Orte: Hauptstadt-Insel im Zentrum + verteilte Doerfer
     block = np.zeros((size, size), dtype=bool)
@@ -470,6 +540,25 @@ def generate(size, seed, islands, out_dir):
     for v in villages:
         vy, vx = seeds[v]
         draw_plaza(draw, block, int(vx), int(vy), int(spacing * 0.16), size, rng)
+
+    # Monster-Spawns: Lichtungen auf Inseln ohne Dorf, abseits des Wege-Knotens
+    spawn_cells = [i for i in range(len(seeds))
+                   if i != capital and i not in villages]
+    rng.shuffle(spawn_cells)
+    spawns = []
+    for cell in spawn_cells[: max(4, len(seeds) // 3)]:
+        sy, sx = seeds[cell]
+        for _ in range(8):      # Platz abseits des Zentrums auf Land suchen
+            ox = sx + rng.normal(0, spacing * 0.22)
+            oy = sy + rng.normal(0, spacing * 0.22)
+            xi, yi = int(min(max(ox, 0), size - 1)), int(min(max(oy, 0), size - 1))
+            if (labels[yi, xi] == cell and not water[yi, xi]
+                    and wdist[yi, xi] > 10 and not block[yi, xi]):
+                r = spacing * (0.09 + rng.random() * 0.04)
+                draw_spawn(draw, block, xi, yi, r, rng)
+                spawns.append({"x": float(xi), "y": float(yi),
+                               "radius": round(float(r), 1)})
+                break
 
     bridge_meta = []
     for p0, p1, _w in bridges:
@@ -498,9 +587,10 @@ def generate(size, seed, islands, out_dir):
                    "capital": {"x": float(cx), "y": float(cy)},
                    "villages": [{"x": float(seeds[v][1]), "y": float(seeds[v][0])}
                                 for v in villages],
+                   "monster_spawns": spawns,
                    "bridges": bridge_meta}, f, indent=2)
-    print(f"Fertig -> {out_dir}/channel_map.png "
-          f"({len(bridge_meta)} Bruecken, 1 Hauptstadt, {len(villages)} Doerfer)")
+    print(f"Fertig -> {out_dir}/channel_map.png ({len(bridge_meta)} Bruecken, "
+          f"1 Hauptstadt, {len(villages)} Doerfer, {len(spawns)} Spawns)")
 
 
 if __name__ == "__main__":
