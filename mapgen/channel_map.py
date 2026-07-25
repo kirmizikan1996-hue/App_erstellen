@@ -361,24 +361,59 @@ def choose_pois(seeds, size, count):
     return capital, chosen[1:]
 
 
-def draw_plaza(draw, block, x, y, r, size):
-    """Runder Dorfplatz aus festgetretener Erde; blockt Baeume."""
-    draw.ellipse([x - r - 3, y - r - 3, x + r + 3, y + r + 3],
-                 fill=PAL["plaza_dark"])
-    draw.ellipse([x - r, y - r, x + r, y + r], fill=PAL["plaza"])
-    draw.ellipse([x - r // 2, y - r // 2, x + r // 2, y + r // 2],
-                 fill=PAL["path"])
-    y0, y1 = max(y - r - 6, 0), min(y + r + 6, size)
-    x0, x1 = max(x - r - 6, 0), min(x + r + 6, size)
+def draw_plaza(draw, block, x, y, r, size, rng):
+    """Gepflasterter Platz mit unregelmaessigem, weichem Rand; blockt Baeume."""
+    # blobbiger Umriss statt hartem Kreis: Radius je Winkel leicht variieren
+    angles = np.linspace(0, 2 * math.pi, 28, endpoint=False)
+    wob = 1 + (rng.random(len(angles)) - 0.5) * 0.28
+    # Uebergangssaum: festgetretene Erde, in den Rasen auslaufend
+    rim = [(x + math.cos(a) * r * w * 1.14, y + math.sin(a) * r * w * 1.14)
+           for a, w in zip(angles, wob)]
+    draw.polygon(rim, fill=PAL["dirt"])
+    body = [(x + math.cos(a) * r * w, y + math.sin(a) * r * w)
+            for a, w in zip(angles, wob)]
+    draw.polygon(body, fill=PAL["plaza"])
+
+    # Pflastersteine: versetzte Ringe kleiner Steine mit Farbvariation
+    tones = [(150, 122, 82), (138, 110, 72), (126, 100, 66), (144, 116, 80)]
+    ring_r = r - 5
+    while ring_r > 3:
+        n = max(6, int(2 * math.pi * ring_r / 9))
+        a0 = rng.random() * math.pi
+        for i in range(n):
+            a = a0 + i * 2 * math.pi / n
+            sx = x + math.cos(a) * ring_r + rng.normal(0, 1.2)
+            sy = y + math.sin(a) * ring_r + rng.normal(0, 1.2)
+            sw = 3.4 + rng.random() * 1.6
+            sh = 2.6 + rng.random() * 1.4
+            tone = tones[int(rng.integers(len(tones)))]
+            draw.ellipse([sx - sw, sy - sh, sx + sw, sy + sh],
+                         fill=tone, outline=PAL["plaza_dark"])
+        ring_r -= 7
+    draw.ellipse([x - 4, y - 3, x + 4, y + 3], fill=tones[0],
+                 outline=PAL["plaza_dark"])
+
+    # einzelne Grasbueschel am Rand lassen den Platz eingewachsen wirken
+    for _ in range(max(6, r // 3)):
+        a = rng.random() * 2 * math.pi
+        rr = r * (0.95 + rng.random() * 0.25)
+        gx, gy = x + math.cos(a) * rr, y + math.sin(a) * rr
+        for dx in (-2, 0, 2):
+            draw.line([(gx + dx, gy + 2), (gx + dx * 1.5, gy - 2)],
+                      fill=PAL["grass_dark"], width=1)
+
+    y0, y1 = max(int(y - r * 1.3), 0), min(int(y + r * 1.3), size)
+    x0, x1 = max(int(x - r * 1.3), 0), min(int(x + r * 1.3), size)
     block[y0:y1, x0:x1] = True
 
 
-def draw_trees(draw, land_ok, wdist, size, rng):
+def collect_trees(land_ok, wdist, size, rng):
     """Dichte Baumreihen an Ufern und am Kartenrand, Cluster im Inneren."""
-    border = 46
-    forest_noise = fbm(size, 9, 3, rng)
+    border = int(size * 0.022)
+    # Waldcluster-Groesse ist absolut (in Pixeln), nicht relativ zur Karte
+    forest_noise = fbm(size, max(4, size // 230), 3, rng)
     positions = []
-    step = max(8, size // 260)
+    step = 9        # fest, damit die Baumdichte bei jeder Kartengroesse stimmt
     for gy in range(0, size, step):
         for gx in range(0, size, step):
             x = int(gx + rng.integers(step))
@@ -393,12 +428,7 @@ def draw_trees(draw, land_ok, wdist, size, rng):
             if rng.random() < p:
                 positions.append((x, y, 4 + int(rng.integers(4))))
     positions.sort(key=lambda p: p[1])
-    for x, y, r in positions:
-        draw.ellipse([x - r, y - r + 2, x + r, y + r + 2], fill=PAL["tree_dark"])
-        draw.ellipse([x - r + 1, y - r + 1, x + r - 1, y + r - 1], fill=PAL["tree"])
-        hr = max(1, r // 2)
-        draw.ellipse([x - hr, y - r + 2, x + hr, y - r + 2 + hr * 2],
-                     fill=PAL["tree_hi"])
+    return positions
 
 
 # ---------------------------------------------------------------- main ----
@@ -436,10 +466,10 @@ def generate(size, seed, islands, out_dir):
     capital, villages = choose_pois(seeds, size, n_villages)
     spacing = size / math.sqrt(len(seeds))
     cy, cx = seeds[capital]
-    draw_plaza(draw, block, int(cx), int(cy), int(spacing * 0.30), size)
+    draw_plaza(draw, block, int(cx), int(cy), int(spacing * 0.30), size, rng)
     for v in villages:
         vy, vx = seeds[v]
-        draw_plaza(draw, block, int(vx), int(vy), int(spacing * 0.16), size)
+        draw_plaza(draw, block, int(vx), int(vy), int(spacing * 0.16), size, rng)
 
     bridge_meta = []
     for p0, p1, _w in bridges:
@@ -447,14 +477,21 @@ def generate(size, seed, islands, out_dir):
         if meta:
             bridge_meta.append(meta)
 
-    print("[6/7] Baeume und Bodendetails setzen ...")
+    print("[6/7] Bodendetails setzen, Baumpositionen berechnen ...")
     land_ok = ~water & (wdist >= 3) & ~block
     draw_detail(draw, land_ok, size, rng)
-    draw_trees(draw, land_ok, wdist, size, rng)
+    # Baeume werden NICHT in die Karte gemalt: sie kommen in Unity als
+    # eigene Assets mit Collider an genau diese exportierten Positionen
+    trees = collect_trees(land_ok, wdist, size, rng)
+    print(f"      {len(trees)} Baumpositionen")
 
     print("[7/7] Speichern ...")
     img.save(os.path.join(out_dir, "channel_map.png"))
     collision.save(os.path.join(out_dir, "collision.png"))
+    with open(os.path.join(out_dir, "trees.json"), "w") as f:
+        json.dump({"size": size,
+                   "trees": [{"x": x, "y": y, "scale": round(r / 5.5, 2)}
+                             for x, y, r in trees]}, f)
     with open(os.path.join(out_dir, "bridges.json"), "w") as f:
         json.dump({"size": size, "seed": seed,
                    "islands": [{"x": float(s[1]), "y": float(s[0])} for s in seeds],
