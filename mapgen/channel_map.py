@@ -68,21 +68,28 @@ def poisson_points(size, count, margin, rng):
 # ------------------------------------------------------------ geometry ----
 
 def build_cells(size, seeds, rng):
-    """Verzerrtes Voronoi: Label je Pixel + Kanal-Maske zwischen den Zellen."""
-    amp = size * 0.045
+    """Runde Insel-Plateaus mit eigenem Radius je Insel.
+
+    Jede Insel ist ein (verbeulter) Kreis um ihr Zentrum; die Radien
+    variieren stark -> winzige Felsnadeln neben riesigen Plateaus, und
+    die Schluchten dazwischen sind mal schmal, mal sehr breit.
+    """
+    n = len(seeds)
+    spacing = size / math.sqrt(n)
+    # Radien: wenige sehr grosse, viele mittlere, einige winzige Inseln;
+    # klein genug, dass die meisten Inseln durch Schluchten getrennt bleiben
+    radii = spacing * (0.26 + rng.random(n) ** 1.8 * 0.55)
+
+    amp = size * 0.03
     wy = (fbm(size, 6, 4, rng) - 0.5) * amp
     wx = (fbm(size, 6, 4, rng) - 0.5) * amp
+    # Kantenwobble: haelt die Grundform rund, macht den Rand aber organisch
+    edge = 0.90 + fbm(size, 24, 3, rng) * 0.18
 
-    # Kanalbreite variiert mit Rauschen -> mal breite Stroeme, mal enge Passagen
-    # Basis ist der typische Inselabstand, damit Fluesse bei jeder
-    # Kartengroesse gleich breit bleiben
-    spacing = size / math.sqrt(len(seeds))
-    width = (fbm(size, 5, 3, rng) * 0.5 + 0.55) * spacing * 0.078
-
-    # zeilenweise KDTree-Abfrage, damit auch 8192px in den Speicher passen
     tree = cKDTree(seeds)
     labels = np.empty((size, size), dtype=np.int32)
     water = np.empty((size, size), dtype=bool)
+    k = min(6, n)
     chunk = max(1, (2048 * 2048) // size)
     xs_row = np.arange(size, dtype=np.float32)
     for y0 in range(0, size, chunk):
@@ -91,10 +98,14 @@ def build_cells(size, seeds, rng):
         xx = np.tile(xs_row, y1 - y0)
         pts = np.column_stack([yy + wy[y0:y1].ravel(),
                                xx + wx[y0:y1].ravel()])
-        dist, idx = tree.query(pts, k=2, workers=-1)
-        labels[y0:y1] = idx[:, 0].reshape(y1 - y0, size)
-        water[y0:y1] = ((dist[:, 1] - dist[:, 0])
-                        .reshape(y1 - y0, size) < width[y0:y1])
+        dist, idx = tree.query(pts, k=k, workers=-1)
+        # relative Distanz zum jeweiligen Inselradius entscheidet
+        ratio = dist / radii[idx]
+        best = np.argmin(ratio, axis=1)
+        rows = np.arange(len(best))
+        labels[y0:y1] = idx[rows, best].reshape(y1 - y0, size)
+        water[y0:y1] = (ratio[rows, best].reshape(y1 - y0, size)
+                        > edge[y0:y1])
     return labels, water, None
 
 
@@ -138,7 +149,9 @@ def find_bridges(seeds, labels, water, rng, extra_ratio=0.3):
                 start = None
         if start is not None:
             runs.append((start, steps))
-        if len(runs) != 1:      # Linie kreuzt mehrere Kanaele -> kein direkter Nachbar
+        if len(runs) == 0:      # Inseln beruehren sich -> zu Fuss verbunden
+            return "touch"
+        if len(runs) != 1:      # Linie kreuzt mehrere Schluchten -> kein Nachbar
             return None
         s, e = runs[0]
         # Label vor/nach dem Wasser muss zu a bzw. b gehoeren
@@ -156,6 +169,7 @@ def find_bridges(seeds, labels, water, rng, extra_ratio=0.3):
     k = min(9, n)
     _, nbr = cKDTree(seeds).query(seeds, k=k, workers=-1)
     cand = {}
+    touching = []
     for a in range(n):
         for b in nbr[a][1:]:
             b = int(b)
@@ -163,7 +177,9 @@ def find_bridges(seeds, labels, water, rng, extra_ratio=0.3):
             if (lo, hi) in cand:
                 continue
             r = water_run(lo, hi)
-            if r is not None:
+            if r == "touch":
+                touching.append((lo, hi))
+            elif r is not None:
                 cand[(lo, hi)] = r
 
     # Kruskal-Spannbaum: kurze/enge Uebergaenge zuerst -> "schlaue" Bruecken
@@ -174,6 +190,10 @@ def find_bridges(seeds, labels, water, rng, extra_ratio=0.3):
             parent[x] = parent[parent[x]]
             x = parent[x]
         return x
+
+    # verschmolzene Inseln zaehlen als bereits verbunden (keine Bruecke noetig)
+    for a, b in touching:
+        parent[find(a)] = find(b)
 
     ordered = sorted(cand.items(), key=lambda kv: kv[1][2])
     bridges, extras = [], []
@@ -188,7 +208,7 @@ def find_bridges(seeds, labels, water, rng, extra_ratio=0.3):
     rng.shuffle(extras)
     extras.sort(key=lambda r: r[2])
     bridges += extras[: int(len(bridges) * extra_ratio)]
-    return bridges
+    return bridges, touching
 
 
 # ------------------------------------------------------------ painting ----
@@ -227,6 +247,9 @@ def paint_base(size, water, wdist, rng):
     chasm_col = chasm_col * (1 - t2) + aby * t2
     strata = (fbm(size, 90, 2, rng) - 0.5) * 26 + (fbm(size, 14, 2, rng) - 0.5) * 18
     chasm_col += strata[..., None] * (1 - t2)   # Schichtung nur an den Waenden
+    # kuehler Nebel-Schimmer in der Tiefe: gibt dem Abgrund Atmosphaere
+    haze = fbm(size, 7, 2, rng)[..., None]
+    chasm_col += haze * np.array([6, 10, 20], dtype=np.float32) * t2
     img[water] = chasm_col[water]
 
     # Land: Grasmischung + Erde-Flecken, malerische Helligkeitsvariation
@@ -293,11 +316,6 @@ def draw_bridge(draw, cdraw, p0, p1):
                 (a1[0] - nx * w, a1[1] - ny * w),
                 (a0[0] - nx * w, a0[1] - ny * w)]
 
-    # Schattenwurf in die Schlucht: die Bruecke "schwebt" ueber dem Abgrund
-    sh0 = (x0 + 3, y0 + 10)
-    sh1 = (x1 + 3, y1 + 10)
-    draw.polygon(quad(sh0, sh1, hw + 1), fill=(10, 9, 12))
-
     draw.polygon(quad(p0, p1, hw + 2), fill=PAL["rail"])          # Aussenkante
     draw.polygon(quad(p0, p1, hw), fill=PAL["plank"])
     # Planken quer zur Laufrichtung
@@ -317,8 +335,9 @@ def draw_bridge(draw, cdraw, p0, p1):
             "angle_deg": math.degrees(math.atan2(dy, dx)), "length": length}
 
 
-def draw_paths(draw, seeds, bridges, labels, size, rng):
-    """Dekorierte Erdpfade: Brueckenenden mit dem Inselzentrum verbinden."""
+def draw_paths(draw, seeds, bridges, labels, size, rng, touching=()):
+    """Dekorierte Erdpfade: Brueckenenden mit dem Inselzentrum verbinden;
+    verschmolzene Inseln bekommen einen direkten Verbindungsweg."""
     ends_per_cell = {}
     for p0, p1, _ in bridges:
         for p in (p0, p1):
@@ -326,26 +345,43 @@ def draw_paths(draw, seeds, bridges, labels, size, rng):
             yi = int(min(max(p[1], 0), size - 1))
             ends_per_cell.setdefault(int(labels[yi, xi]), []).append(p)
 
+    def bezier(px, py, cx, cy):
+        mx = (px + cx) / 2 + (py - cy) * 0.12   # leichte Kurve
+        my = (py + cy) / 2 - (px - cx) * 0.12
+        pts = []
+        for t in np.linspace(0, 1, 24):
+            bx = (1 - t) ** 2 * px + 2 * (1 - t) * t * mx + t * t * cx
+            by = (1 - t) ** 2 * py + 2 * (1 - t) * t * my + t * t * cy
+            pts.append((bx, by))
+        return pts
+
     paths = []
     for cell, ends in ends_per_cell.items():
         cy, cx = seeds[cell]
         for (px, py) in ends:
-            mx = (px + cx) / 2 + (py - cy) * 0.12   # leichte Kurve
-            my = (py + cy) / 2 - (px - cx) * 0.12
-            pts = []
-            for t in np.linspace(0, 1, 24):
-                bx = (1 - t) ** 2 * px + 2 * (1 - t) * t * mx + t * t * cx
-                by = (1 - t) ** 2 * py + 2 * (1 - t) * t * my + t * t * cy
-                pts.append((bx, by))
-            paths.append(pts)
+            paths.append(bezier(px, py, cx, cy))
+    for a, b in touching:                        # Landweg zwischen Nachbarn
+        paths.append(bezier(seeds[a][1], seeds[a][0],
+                            seeds[b][1], seeds[b][0]))
 
-    # drei Lagen: dunkler Rand, Kernfarbe, heller ausgetretener Mittelstreifen
+    # vier Lagen: dunkler Rand, Kernfarbe, ausgetretener Streifen, Radspuren
     for pts in paths:
-        draw.line(pts, fill=(104, 82, 50), width=11, joint="curve")
+        draw.line(pts, fill=(104, 82, 50), width=15, joint="curve")
     for pts in paths:
-        draw.line(pts, fill=PAL["path"], width=7, joint="curve")
+        draw.line(pts, fill=PAL["path"], width=11, joint="curve")
     for pts in paths:
-        draw.line(pts, fill=(172, 142, 94), width=3, joint="curve")
+        draw.line(pts, fill=(172, 142, 94), width=5, joint="curve")
+    # zwei feine Fahrspuren links/rechts der Mitte
+    for pts in paths:
+        for i in range(1, len(pts)):
+            (ax, ay), (bx, by) = pts[i - 1], pts[i]
+            dx, dy = bx - ax, by - ay
+            nrm = math.hypot(dx, dy) or 1.0
+            nx, ny = -dy / nrm * 3, dx / nrm * 3
+            draw.line([(ax + nx, ay + ny), (bx + nx, by + ny)],
+                      fill=(132, 104, 66), width=1)
+            draw.line([(ax - nx, ay - ny), (bx - nx, by - ny)],
+                      fill=(132, 104, 66), width=1)
 
     # Dekoration am Wegesrand: Kiesel, Blumen, Grasbueschel
     flower_cols = [(214, 96, 82), (226, 198, 96), (232, 230, 224)]
@@ -356,9 +392,9 @@ def draw_paths(draw, seeds, bridges, labels, size, rng):
             n = math.hypot(dx, dy) or 1.0
             nx, ny = -dy / n, dx / n            # senkrecht zum Weg
             for side in (1, -1):
-                if rng.random() > 0.55:
+                if rng.random() > 0.75:
                     continue
-                off = 7 + rng.random() * 4
+                off = 9 + rng.random() * 5
                 px = pts[i][0] + nx * off * side + rng.normal(0, 1.5)
                 py = pts[i][1] + ny * off * side + rng.normal(0, 1.5)
                 roll = rng.random()
@@ -378,8 +414,10 @@ def draw_paths(draw, seeds, bridges, labels, size, rng):
 
 
 def draw_boulders(draw, land, wdist, size, rng):
-    """Steinbrocken entlang der Abbruchkanten: markieren die Schlucht."""
-    step = 13
+    """Granit-Felsen entlang der Abbruchkanten: kantige Brocken mit
+    Facetten, Sprenkeln und Schlagschatten -> deutlich als Fels lesbar."""
+    granite = [(136, 136, 142), (122, 120, 128), (148, 146, 150)]
+    step = 12
     for gy in range(0, size, step):
         for gx in range(0, size, step):
             x = int(gx + rng.integers(step))
@@ -387,15 +425,29 @@ def draw_boulders(draw, land, wdist, size, rng):
             if x >= size or y >= size or not land[y, x]:
                 continue
             d = wdist[y, x]
-            if not (2 <= d <= 7) or rng.random() > 0.62:
+            if not (2 <= d <= 9) or rng.random() > 0.7:
                 continue
-            r = 2 + int(rng.integers(4))
-            # Schatten, Koerper, Lichtkante
-            draw.ellipse([x - r, y - r + 2, x + r + 1, y + r + 2],
-                         fill=(38, 34, 28))
-            draw.ellipse([x - r, y - r, x + r, y + r], fill=PAL["stone"])
-            draw.ellipse([x - r + 1, y - r + 1, x + max(r - 2, 0), y],
-                         fill=(156, 152, 142))
+            r = 4 + int(rng.integers(6))
+            # kantiger Umriss (unregelmaessiges Polygon statt Kreis)
+            angs = np.linspace(0, 2 * math.pi, 7, endpoint=False)
+            angs = angs + rng.random(7) * 0.5
+            wob = 0.75 + rng.random(7) * 0.5
+            body = [(x + math.cos(a) * r * w, y + math.sin(a) * r * w)
+                    for a, w in zip(angs, wob)]
+            shadow = [(px + 2, py + 3) for px, py in body]
+            draw.polygon(shadow, fill=(30, 27, 24))            # Schlagschatten
+            base = granite[int(rng.integers(3))]
+            draw.polygon(body, fill=base, outline=(58, 56, 60))
+            # helle Oberseite (Lichtfacette oben links)
+            top = [(x + (px - x) * 0.55 - r * 0.18, y + (py - y) * 0.55 - r * 0.28)
+                   for px, py in body]
+            draw.polygon(top, fill=(170, 170, 176))
+            # Granit-Sprenkel
+            for _ in range(r):
+                sx = x + rng.normal(0, r * 0.4)
+                sy = y + rng.normal(0, r * 0.4)
+                c = (86, 84, 92) if rng.random() < 0.6 else (196, 196, 200)
+                draw.point((sx, sy), fill=c)
 
 
 def draw_detail(draw, land_ok, size, rng):
@@ -550,7 +602,7 @@ def generate(size, seed, islands, out_dir):
     wdist = water_distance(water)
 
     print("[3/7] Bruecken planen (Spannbaum + Abkuerzungen) ...")
-    bridges = find_bridges(seeds, labels, water, rng)
+    bridges, touching = find_bridges(seeds, labels, water, rng)
     print(f"      {len(bridges)} Bruecken")
 
     print("[4/7] Boden malen ...")
@@ -563,7 +615,7 @@ def generate(size, seed, islands, out_dir):
     cdraw = ImageDraw.Draw(collision)
 
     print("[5/7] Pfade, Plaetze, Spawns und Bruecken zeichnen ...")
-    draw_paths(draw, seeds, bridges, labels, size, rng)
+    draw_paths(draw, seeds, bridges, labels, size, rng, touching)
 
     # Besondere Orte: Hauptstadt-Insel im Zentrum + verteilte Doerfer
     block = np.zeros((size, size), dtype=bool)
@@ -597,6 +649,27 @@ def generate(size, seed, islands, out_dir):
 
     # Felsbrocken an den Kanten VOR den Bruecken, damit nichts die Decks verdeckt
     draw_boulders(draw, ~water, wdist, size, rng)
+
+    # Brueckenschatten: nur in die Schlucht werfen (Maske mit water verschneiden)
+    shadow_img = Image.new("L", (size, size), 0)
+    sdraw = ImageDraw.Draw(shadow_img)
+    for p0, p1, _w in bridges:
+        dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+        ln = math.hypot(dx, dy)
+        if ln < 4:
+            continue
+        nx, ny = -dy / ln, dx / ln
+        hw = 10
+        sdraw.polygon(
+            [(p0[0] + 3 + nx * hw, p0[1] + 10 + ny * hw),
+             (p1[0] + 3 + nx * hw, p1[1] + 10 + ny * hw),
+             (p1[0] + 3 - nx * hw, p1[1] + 10 - ny * hw),
+             (p0[0] + 3 - nx * hw, p0[1] + 10 - ny * hw)], fill=255)
+    arr = np.asarray(img, dtype=np.float32)
+    smask = (np.asarray(shadow_img) > 0) & water
+    arr[smask] *= 0.30
+    img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    draw = ImageDraw.Draw(img)
 
     bridge_meta = []
     for p0, p1, _w in bridges:
