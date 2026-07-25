@@ -60,7 +60,7 @@ def poisson_points(size, count, margin, rng):
     while len(pts) < count:
         cand = rng.uniform(margin, size - margin, (24, 2))
         d = cKDTree(pts).query(cand)[0]
-        w = 0.35 + 1.65 * density[cand[:, 0].astype(int), cand[:, 1].astype(int)]
+        w = 0.22 + 2.3 * density[cand[:, 0].astype(int), cand[:, 1].astype(int)]
         pts.append(cand[np.argmax(d * w)])
     return np.array(pts)
 
@@ -194,7 +194,8 @@ def find_bridges(seeds, labels, water, rng, extra_ratio=0.3):
 # ------------------------------------------------------------ painting ----
 
 PAL = {
-    "deep": (30, 56, 66), "water": (46, 80, 90), "shore": (74, 116, 118),
+    "abyss": (16, 14, 18), "chasm_wall": (88, 72, 52),
+    "chasm_dark": (48, 40, 32),
     "bank": (40, 32, 22), "cliff": (74, 60, 42), "cliff_hi": (116, 98, 68),
     "grass": (92, 108, 56), "grass_dark": (64, 84, 44),
     "dirt": (112, 88, 54), "path": (150, 120, 76),
@@ -206,18 +207,27 @@ PAL = {
 
 
 def paint_base(size, water, wdist, rng):
+    """water-Maske = Schlucht: zwischen den Insel-Plateaus liegt ein Abgrund."""
     img = np.zeros((size, size, 3), dtype=np.float32)
-    deep = water & (wdist == 0)
 
-    # Wassertiefe: Mitte der Kanaele dunkler
+    # Schluchttiefe: je weiter von den Raendern, desto tiefer/dunkler
     inner = water.copy()
     depth = np.zeros((size, size), dtype=np.uint8)
-    for i in range(1, 14):
+    for i in range(1, 22):
         inner = ~((~inner) | np.roll(~inner, 1, 0) | np.roll(~inner, -1, 0)
                   | np.roll(~inner, 1, 1) | np.roll(~inner, -1, 1))
         depth[inner] = i
-    t = np.clip(depth / 10, 0, 1)[..., None]
-    img[water] = (np.array(PAL["water"]) * (1 - t) + np.array(PAL["deep"]) * t)[water]
+    # Felswand oben, ins Schwarze auslaufend; Gesteinsschichten als Streifen
+    t = np.clip(depth / 14, 0, 1)[..., None] ** 0.8
+    wall = np.array(PAL["chasm_wall"], dtype=np.float32)
+    dark = np.array(PAL["chasm_dark"], dtype=np.float32)
+    aby = np.array(PAL["abyss"], dtype=np.float32)
+    chasm_col = wall * (1 - t) + dark * t
+    t2 = np.clip((depth - 8) / 12, 0, 1)[..., None]
+    chasm_col = chasm_col * (1 - t2) + aby * t2
+    strata = (fbm(size, 90, 2, rng) - 0.5) * 26 + (fbm(size, 14, 2, rng) - 0.5) * 18
+    chasm_col += strata[..., None] * (1 - t2)   # Schichtung nur an den Waenden
+    img[water] = chasm_col[water]
 
     # Land: Grasmischung + Erde-Flecken, malerische Helligkeitsvariation
     land = ~water
@@ -235,24 +245,24 @@ def paint_base(size, water, wdist, rng):
     speck = fbm(size, 170, 2, rng) - 0.5
     img[land] += ((blotch * 24 + speck * 12)[..., None])[land]
 
-    # Flachwassersaum am Rand der Kanaele
-    shore = water & (depth <= 2)
-    img[shore] = img[shore] * 0.7 + np.array(PAL["shore"], dtype=np.float32) * 0.3
-
-    # Klippen-Ufer: felsige Kante mit Licht (oben) und Schatten (unten),
-    # als wuerde die Insel ein Stueck ueber dem Wasser liegen
+    # Plateau-Kante: felsige Abbruchkante mit Licht (oben) und Schatten (unten)
     cliff = land & (wdist <= 2)
     img[cliff] = img[cliff] * 0.40 + np.array(PAL["cliff"], dtype=np.float32) * 0.60
-    lit = cliff & np.roll(water, 1, 0)      # Wasser noerdlich -> Kante faengt Licht
+    lit = cliff & np.roll(water, 1, 0)      # Abgrund noerdlich -> Kante faengt Licht
     img[lit] = img[lit] * 0.45 + np.array(PAL["cliff_hi"], dtype=np.float32) * 0.55
-    shadow = cliff & np.roll(water, -1, 0)  # Wasser suedlich -> Kante im Schatten
+    shadow = cliff & np.roll(water, -1, 0)  # Abgrund suedlich -> Kante im Schatten
     img[shadow] *= 0.62
-    # dunkle Tusche-Linie direkt an der Wasserkante
+    # dunkle Bruchlinie direkt an der Abbruchkante
     ink_line = water & (np.roll(land, 1, 0) | np.roll(land, -1, 0)
                         | np.roll(land, 1, 1) | np.roll(land, -1, 1))
     img[ink_line] = img[ink_line] * 0.45 + np.array(PAL["bank"], dtype=np.float32) * 0.55
+    # Schattenwurf der Insel in die Schlucht (Suedseite) verstaerkt die Hoehe
+    drop = water & ~land
+    for off in (2, 4, 6):
+        cast = np.roll(land, off, 0) & drop & (depth <= off + 3)
+        img[cast] *= 0.72
 
-    # Land nahe dem Ufer leicht abdunkeln (gemalte Tiefe)
+    # Land nahe der Kante leicht abdunkeln (gemalte Tiefe)
     near = land & (wdist >= 3) & (wdist <= 8)
     img[near] *= 0.90
 
@@ -262,7 +272,6 @@ def paint_base(size, water, wdist, rng):
     fall = (1.0 - 0.16 * np.clip(r2 - 0.45, 0, 1))[..., None]
     img *= fall
 
-    _ = deep
     return np.clip(img, 0, 255)
 
 
@@ -283,6 +292,11 @@ def draw_bridge(draw, cdraw, p0, p1):
                 (a1[0] + nx * w, a1[1] + ny * w),
                 (a1[0] - nx * w, a1[1] - ny * w),
                 (a0[0] - nx * w, a0[1] - ny * w)]
+
+    # Schattenwurf in die Schlucht: die Bruecke "schwebt" ueber dem Abgrund
+    sh0 = (x0 + 3, y0 + 10)
+    sh1 = (x1 + 3, y1 + 10)
+    draw.polygon(quad(sh0, sh1, hw + 1), fill=(10, 9, 12))
 
     draw.polygon(quad(p0, p1, hw + 2), fill=PAL["rail"])          # Aussenkante
     draw.polygon(quad(p0, p1, hw), fill=PAL["plank"])
@@ -361,6 +375,27 @@ def draw_paths(draw, seeds, bridges, labels, size, rng):
                         draw.line([(px + gdx, py + 2),
                                    (px + gdx * 1.5, py - 2)],
                                   fill=PAL["grass_dark"], width=1)
+
+
+def draw_boulders(draw, land, wdist, size, rng):
+    """Steinbrocken entlang der Abbruchkanten: markieren die Schlucht."""
+    step = 13
+    for gy in range(0, size, step):
+        for gx in range(0, size, step):
+            x = int(gx + rng.integers(step))
+            y = int(gy + rng.integers(step))
+            if x >= size or y >= size or not land[y, x]:
+                continue
+            d = wdist[y, x]
+            if not (2 <= d <= 7) or rng.random() > 0.62:
+                continue
+            r = 2 + int(rng.integers(4))
+            # Schatten, Koerper, Lichtkante
+            draw.ellipse([x - r, y - r + 2, x + r + 1, y + r + 2],
+                         fill=(38, 34, 28))
+            draw.ellipse([x - r, y - r, x + r, y + r], fill=PAL["stone"])
+            draw.ellipse([x - r + 1, y - r + 1, x + max(r - 2, 0), y],
+                         fill=(156, 152, 142))
 
 
 def draw_detail(draw, land_ok, size, rng):
@@ -559,6 +594,9 @@ def generate(size, seed, islands, out_dir):
                 spawns.append({"x": float(xi), "y": float(yi),
                                "radius": round(float(r), 1)})
                 break
+
+    # Felsbrocken an den Kanten VOR den Bruecken, damit nichts die Decks verdeckt
+    draw_boulders(draw, ~water, wdist, size, rng)
 
     bridge_meta = []
     for p0, p1, _w in bridges:
