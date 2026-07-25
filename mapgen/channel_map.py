@@ -42,10 +42,10 @@ def _value_noise(h, w, cells, rng):
 
 
 def fbm(size, base, octaves, rng):
-    total = np.zeros((size, size))
+    total = np.zeros((size, size), dtype=np.float32)
     amp, s, cells = 1.0, 0.0, base
     for _ in range(octaves):
-        total += amp * _value_noise(size, size, cells, rng)
+        total += amp * _value_noise(size, size, cells, rng).astype(np.float32)
         s += amp
         amp *= 0.5
         cells *= 2
@@ -66,20 +66,33 @@ def poisson_points(size, count, margin, rng):
 
 def build_cells(size, seeds, rng):
     """Verzerrtes Voronoi: Label je Pixel + Kanal-Maske zwischen den Zellen."""
-    yy, xx = np.mgrid[0:size, 0:size].astype(np.float32)
     amp = size * 0.045
-    wy = (fbm(size, 6, 4, rng) - 0.5).astype(np.float32) * amp
-    wx = (fbm(size, 6, 4, rng) - 0.5).astype(np.float32) * amp
-    pts = np.column_stack([(yy + wy).ravel(), (xx + wx).ravel()])
-    dist, idx = cKDTree(seeds).query(pts, k=2, workers=-1)
-    d1 = dist[:, 0].reshape(size, size)
-    d2 = dist[:, 1].reshape(size, size)
-    labels = idx[:, 0].reshape(size, size)
+    wy = (fbm(size, 6, 4, rng) - 0.5) * amp
+    wx = (fbm(size, 6, 4, rng) - 0.5) * amp
 
     # Kanalbreite variiert mit Rauschen -> mal breite Stroeme, mal enge Passagen
-    width = (fbm(size, 5, 3, rng) * 0.5 + 0.55) * size * 0.012
-    water = (d2 - d1) < width
-    return labels, water, d1
+    # Basis ist der typische Inselabstand, damit Fluesse bei jeder
+    # Kartengroesse gleich breit bleiben
+    spacing = size / math.sqrt(len(seeds))
+    width = (fbm(size, 5, 3, rng) * 0.5 + 0.55) * spacing * 0.078
+
+    # zeilenweise KDTree-Abfrage, damit auch 8192px in den Speicher passen
+    tree = cKDTree(seeds)
+    labels = np.empty((size, size), dtype=np.int32)
+    water = np.empty((size, size), dtype=bool)
+    chunk = max(1, (2048 * 2048) // size)
+    xs_row = np.arange(size, dtype=np.float32)
+    for y0 in range(0, size, chunk):
+        y1 = min(y0 + chunk, size)
+        yy = np.repeat(np.arange(y0, y1, dtype=np.float32), size)
+        xx = np.tile(xs_row, y1 - y0)
+        pts = np.column_stack([yy + wy[y0:y1].ravel(),
+                               xx + wx[y0:y1].ravel()])
+        dist, idx = tree.query(pts, k=2, workers=-1)
+        labels[y0:y1] = idx[:, 0].reshape(y1 - y0, size)
+        water[y0:y1] = ((dist[:, 1] - dist[:, 0])
+                        .reshape(y1 - y0, size) < width[y0:y1])
+    return labels, water, None
 
 
 def water_distance(water, max_d=48):
@@ -135,15 +148,20 @@ def find_bridges(seeds, labels, water, rng, extra_ratio=0.3):
         return ((float(xs[s2]), float(ys[s2])), (float(xs[e2]), float(ys[e2])),
                 e - s)
 
-    # Kandidaten: Inselpaare, deren Verbindungslinie genau einen Kanal kreuzt
+    # Kandidaten: nur echte Nachbarn (naechste 8 Inseln je Zentrum),
+    # deren Verbindungslinie genau einen Kanal kreuzt
+    k = min(9, n)
+    _, nbr = cKDTree(seeds).query(seeds, k=k, workers=-1)
     cand = {}
     for a in range(n):
-        for b in range(a + 1, n):
-            if np.hypot(*(seeds[a] - seeds[b])) > size * 0.22:
+        for b in nbr[a][1:]:
+            b = int(b)
+            lo, hi = min(a, b), max(a, b)
+            if (lo, hi) in cand:
                 continue
-            r = water_run(a, b)
+            r = water_run(lo, hi)
             if r is not None:
-                cand[(a, b)] = r
+                cand[(lo, hi)] = r
 
     # Kruskal-Spannbaum: kurze/enge Uebergaenge zuerst -> "schlaue" Bruecken
     parent = list(range(n))
@@ -173,16 +191,19 @@ def find_bridges(seeds, labels, water, rng, extra_ratio=0.3):
 # ------------------------------------------------------------ painting ----
 
 PAL = {
-    "deep": (43, 74, 84), "water": (58, 96, 104), "shore": (86, 128, 130),
-    "bank": (46, 38, 26), "grass": (104, 120, 62), "grass_dark": (76, 96, 50),
-    "dirt": (128, 102, 64), "path": (158, 128, 82),
-    "tree_dark": (34, 52, 28), "tree": (56, 82, 40), "tree_hi": (82, 108, 52),
-    "plank": (146, 110, 66), "plank_dark": (112, 82, 48), "rail": (58, 42, 26),
+    "deep": (30, 56, 66), "water": (46, 80, 90), "shore": (74, 116, 118),
+    "bank": (40, 32, 22), "cliff": (74, 60, 42), "cliff_hi": (116, 98, 68),
+    "grass": (92, 108, 56), "grass_dark": (64, 84, 44),
+    "dirt": (112, 88, 54), "path": (150, 120, 76),
+    "tree_dark": (28, 44, 24), "tree": (48, 72, 36), "tree_hi": (72, 98, 46),
+    "plank": (146, 110, 66), "plank_dark": (112, 82, 48), "rail": (52, 38, 24),
+    "plaza": (140, 110, 70), "plaza_dark": (106, 82, 52),
+    "stone": (128, 124, 116),
 }
 
 
 def paint_base(size, water, wdist, rng):
-    img = np.zeros((size, size, 3))
+    img = np.zeros((size, size, 3), dtype=np.float32)
     deep = water & (wdist == 0)
 
     # Wassertiefe: Mitte der Kanaele dunkler
@@ -199,7 +220,9 @@ def paint_base(size, water, wdist, rng):
     land = ~water
     mix = fbm(size, 10, 4, rng)
     dirt = fbm(size, 7, 3, rng)
-    g = np.array(PAL["grass"]) ; gd = np.array(PAL["grass_dark"]) ; dr = np.array(PAL["dirt"])
+    g = np.array(PAL["grass"], dtype=np.float32)
+    gd = np.array(PAL["grass_dark"], dtype=np.float32)
+    dr = np.array(PAL["dirt"], dtype=np.float32)
     t2 = np.clip((mix - 0.35) / 0.35, 0, 1)[..., None]
     base = g * (1 - t2) + gd * t2
     td = np.clip((dirt - 0.62) / 0.14, 0, 1)[..., None]
@@ -209,16 +232,34 @@ def paint_base(size, water, wdist, rng):
     speck = fbm(size, 170, 2, rng) - 0.5
     img[land] += ((blotch * 24 + speck * 12)[..., None])[land]
 
-    # Ufer: dunkle Tusche-Kante + heller Flachwassersaum
-    bank = (wdist == 0) & water
-    edge = (wdist >= 1) & (wdist <= 2)
-    img[edge] = img[edge] * 0.55 + np.array(PAL["bank"]) * 0.45
+    # Flachwassersaum am Rand der Kanaele
     shore = water & (depth <= 2)
-    img[shore] = img[shore] * 0.7 + np.array(PAL["shore"]) * 0.3
+    img[shore] = img[shore] * 0.7 + np.array(PAL["shore"], dtype=np.float32) * 0.3
+
+    # Klippen-Ufer: felsige Kante mit Licht (oben) und Schatten (unten),
+    # als wuerde die Insel ein Stueck ueber dem Wasser liegen
+    cliff = land & (wdist <= 2)
+    img[cliff] = img[cliff] * 0.40 + np.array(PAL["cliff"], dtype=np.float32) * 0.60
+    lit = cliff & np.roll(water, 1, 0)      # Wasser noerdlich -> Kante faengt Licht
+    img[lit] = img[lit] * 0.45 + np.array(PAL["cliff_hi"], dtype=np.float32) * 0.55
+    shadow = cliff & np.roll(water, -1, 0)  # Wasser suedlich -> Kante im Schatten
+    img[shadow] *= 0.62
+    # dunkle Tusche-Linie direkt an der Wasserkante
+    ink_line = water & (np.roll(land, 1, 0) | np.roll(land, -1, 0)
+                        | np.roll(land, 1, 1) | np.roll(land, -1, 1))
+    img[ink_line] = img[ink_line] * 0.45 + np.array(PAL["bank"], dtype=np.float32) * 0.55
+
     # Land nahe dem Ufer leicht abdunkeln (gemalte Tiefe)
-    near = land & (wdist <= 6)
-    img[near] *= 0.88
-    _ = deep, bank
+    near = land & (wdist >= 3) & (wdist <= 8)
+    img[near] *= 0.90
+
+    # Vignette: Raender abdunkeln, damit die Welt geschlossen wirkt
+    ax = np.linspace(-1, 1, size, dtype=np.float32)
+    r2 = ax[:, None] ** 2 + ax[None, :] ** 2
+    fall = (1.0 - 0.16 * np.clip(r2 - 0.45, 0, 1))[..., None]
+    img *= fall
+
+    _ = deep
     return np.clip(img, 0, 255)
 
 
@@ -280,6 +321,58 @@ def draw_paths(draw, seeds, bridges, labels, size):
             draw.line(pts, fill=PAL["path"], width=7, joint="curve")
 
 
+def draw_detail(draw, land_ok, size, rng):
+    """Grasbueschel und Steinchen fuer lebendigen Boden."""
+    tufts = int((size / 2048) ** 2 * 9000)
+    for _ in range(tufts):
+        x = int(rng.integers(size))
+        y = int(rng.integers(size))
+        if not land_ok[y, x]:
+            continue
+        c = PAL["grass_dark"] if rng.random() < 0.7 else PAL["tree_hi"]
+        for dx in (-2, 0, 2):
+            draw.line([(x + dx, y + 2), (x + dx * 1.5, y - 2 - int(rng.integers(2)))],
+                      fill=c, width=1)
+    stones = tufts // 10
+    for _ in range(stones):
+        x = int(rng.integers(size))
+        y = int(rng.integers(size))
+        if not land_ok[y, x]:
+            continue
+        r = 1 + int(rng.integers(2))
+        draw.ellipse([x - r, y - r, x + r, y + r], fill=PAL["stone"])
+        draw.ellipse([x - r, y, x + r, y + r], fill=(96, 92, 84))
+
+
+def choose_pois(seeds, size, count):
+    """Hauptstadt = zentralste Insel; Doerfer weit verteilt (Farthest-Point)."""
+    center = np.array([size / 2, size / 2])
+    capital = int(np.argmin(np.linalg.norm(seeds - center, axis=1)))
+    chosen = [capital]
+    for _ in range(count):
+        d = np.min(
+            np.linalg.norm(seeds[:, None, :] - seeds[chosen][None, :, :], axis=2),
+            axis=1)
+        # Rand meiden: dort liegen die Waldguertel
+        margin = size * 0.1
+        d[(seeds[:, 0] < margin) | (seeds[:, 0] > size - margin)
+          | (seeds[:, 1] < margin) | (seeds[:, 1] > size - margin)] = -1
+        chosen.append(int(np.argmax(d)))
+    return capital, chosen[1:]
+
+
+def draw_plaza(draw, block, x, y, r, size):
+    """Runder Dorfplatz aus festgetretener Erde; blockt Baeume."""
+    draw.ellipse([x - r - 3, y - r - 3, x + r + 3, y + r + 3],
+                 fill=PAL["plaza_dark"])
+    draw.ellipse([x - r, y - r, x + r, y + r], fill=PAL["plaza"])
+    draw.ellipse([x - r // 2, y - r // 2, x + r // 2, y + r // 2],
+                 fill=PAL["path"])
+    y0, y1 = max(y - r - 6, 0), min(y + r + 6, size)
+    x0, x1 = max(x - r - 6, 0), min(x + r + 6, size)
+    block[y0:y1, x0:x1] = True
+
+
 def draw_trees(draw, land_ok, wdist, size, rng):
     """Dichte Baumreihen an Ufern und am Kartenrand, Cluster im Inneren."""
     border = 46
@@ -334,17 +427,29 @@ def generate(size, seed, islands, out_dir):
     collision = Image.fromarray((water * 255).astype(np.uint8))
     cdraw = ImageDraw.Draw(collision)
 
-    print("[5/7] Pfade und Bruecken zeichnen ...")
+    print("[5/7] Pfade, Plaetze und Bruecken zeichnen ...")
     draw_paths(draw, seeds, bridges, labels, size)
+
+    # Besondere Orte: Hauptstadt-Insel im Zentrum + verteilte Doerfer
+    block = np.zeros((size, size), dtype=bool)
+    n_villages = max(4, len(seeds) // 12)
+    capital, villages = choose_pois(seeds, size, n_villages)
+    spacing = size / math.sqrt(len(seeds))
+    cy, cx = seeds[capital]
+    draw_plaza(draw, block, int(cx), int(cy), int(spacing * 0.30), size)
+    for v in villages:
+        vy, vx = seeds[v]
+        draw_plaza(draw, block, int(vx), int(vy), int(spacing * 0.16), size)
+
     bridge_meta = []
     for p0, p1, _w in bridges:
         meta = draw_bridge(draw, cdraw, p0, p1)
         if meta:
             bridge_meta.append(meta)
 
-    print("[6/7] Baeume setzen ...")
-    # keine Baeume direkt auf Bruecken/Pfad-Enden
-    land_ok = ~water & (wdist >= 3)
+    print("[6/7] Baeume und Bodendetails setzen ...")
+    land_ok = ~water & (wdist >= 3) & ~block
+    draw_detail(draw, land_ok, size, rng)
     draw_trees(draw, land_ok, wdist, size, rng)
 
     print("[7/7] Speichern ...")
@@ -353,8 +458,12 @@ def generate(size, seed, islands, out_dir):
     with open(os.path.join(out_dir, "bridges.json"), "w") as f:
         json.dump({"size": size, "seed": seed,
                    "islands": [{"x": float(s[1]), "y": float(s[0])} for s in seeds],
+                   "capital": {"x": float(cx), "y": float(cy)},
+                   "villages": [{"x": float(seeds[v][1]), "y": float(seeds[v][0])}
+                                for v in villages],
                    "bridges": bridge_meta}, f, indent=2)
-    print(f"Fertig -> {out_dir}/channel_map.png ({len(bridge_meta)} Bruecken)")
+    print(f"Fertig -> {out_dir}/channel_map.png "
+          f"({len(bridge_meta)} Bruecken, 1 Hauptstadt, {len(villages)} Doerfer)")
 
 
 if __name__ == "__main__":
