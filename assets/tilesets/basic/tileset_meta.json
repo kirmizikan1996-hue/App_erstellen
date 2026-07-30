@@ -1,63 +1,204 @@
 {
   "tile_size": 32,
-  "columns": 8,
-  "count": 56,
+  "columns": 16,
+  "count": 107,
   "ids": {
     "grass_1": 0,
     "grass_2": 1,
     "grass_3": 2,
-    "sand": 3,
-    "dirt": 4,
-    "water": 5,
-    "water_2": 6,
-    "stone_floor": 7,
-    "water_grass_0": 8,
-    "water_grass_1": 9,
-    "water_grass_2": 10,
-    "water_grass_3": 11,
-    "water_grass_4": 12,
-    "water_grass_5": 13,
-    "water_grass_6": 14,
-    "water_grass_7": 15,
-    "water_grass_8": 16,
-    "water_grass_9": 17,
-    "water_grass_10": 18,
-    "water_grass_11": 19,
-    "water_grass_12": 20,
-    "water_grass_13": 21,
-    "water_grass_14": 22,
-    "water_grass_15": 23,
-    "dirt_grass_0": 24,
-    "dirt_grass_1": 25,
-    "dirt_grass_2": 26,
-    "dirt_grass_3": 27,
-    "dirt_grass_4": 28,
-    "dirt_grass_5": 29,
-    "dirt_grass_6": 30,
-    "dirt_grass_7": 31,
-    "dirt_grass_8": 32,
-    "dirt_grass_9": 33,
-    "dirt_grass_10": 34,
-    "dirt_grass_11": 35,
-    "dirt_grass_12": 36,
-    "dirt_grass_13": 37,
-    "dirt_grass_14": 38,
-    "dirt_grass_15": 39,
-    "tree": 40,
-    "pine": 41,
-    "rock": 42,
-    "bush": 43,
-    "flowers_red": 44,
-    "flowers_blue": 45,
-    "tree_sand": 46,
-    "rock_sand": 47,
-    "wall": 48,
-    "wall_door": 49,
-    "wall_window": 50,
-    "roof_left": 51,
-    "roof_mid": 52,
-    "roof_right": 53,
-    "roof_top": 54,
-    "stone_path": 55
+    "dirt": 3,
+    "water": 4,
+    "stone_1": 5,
+    "stone_2": 6,
+    "water_grass_0": 7,
+    "water_grass_1": 8,
+    "water_grass_2": 9,
+    "water_grass_3": 10,
+    "water_grass_4": 11,
+    "water_grass_5": 12,
+    "water_grass_6": 13,
+    "water_grass_7": 14,
+    "water_grass_8": 15,
+    "water_grass_9": 16,
+    "water_grass_10": 17,
+    "water_grass_11": 18,
+    "water_grass_12": 19,
+    "water_grass_13": 20,
+    "water_grass_14": 21,
+    "water_grass_15": 22,
+    "dirt_grass_0": 23,
+    "dirt_grass_1": 24,
+    "dirt_grass_2": 25,
+    "dirt_grass_3": 26,
+    "dirt_grass_4": 27,
+    "dirt_grass_5": 28,
+    "dirt_grass_6": 29,
+    "dirt_grass_7": 30,
+    "dirt_grass_8": 31,
+    "dirt_grass_9": 32,
+    "dirt_grass_10": 33,
+    "dirt_grass_11": 34,
+    "dirt_grass_12": 35,
+    "dirt_grass_13": 36,
+    "dirt_grass_14": 37,
+    "dirt_grass_15": 38,
+    "bush": 39,
+    "rock": 40,
+    "flowers_red": 41,
+    "flowers_blue": 42,
+    "tall_grass": 43,
+    "sprouts": 44,
+    "fence_h": 45,
+    "fence_v": 46
+  },
+  "sprites": {
+    "tree_a": {
+      "w": 2,
+      "h": 2,
+      "tiles": [
+        [
+          47,
+          48
+        ],
+        [
+          49,
+          50
+        ]
+      ]
+    },
+    "tree_b": {
+      "w": 2,
+      "h": 2,
+      "tiles": [
+        [
+          51,
+          52
+        ],
+        [
+          53,
+          54
+        ]
+      ]
+    },
+    "tree_c": {
+      "w": 2,
+      "h": 2,
+      "tiles": [
+        [
+          55,
+          56
+        ],
+        [
+          57,
+          58
+        ]
+      ]
+    },
+    "pine_a": {
+      "w": 1,
+      "h": 2,
+      "tiles": [
+        [
+          59
+        ],
+        [
+          60
+        ]
+      ]
+    },
+    "pine_b": {
+      "w": 1,
+      "h": 2,
+      "tiles": [
+        [
+          61
+        ],
+        [
+          62
+        ]
+      ]
+    },
+    "well": {
+      "w": 2,
+      "h": 2,
+      "tiles": [
+        [
+          63,
+          64
+        ],
+        [
+          65,
+          66
+        ]
+      ]
+    },
+    "house_a": {
+      "w": 5,
+      "h": 4,
+      "tiles": [
+        [
+          67,
+          68,
+          69,
+          70,
+          71
+        ],
+        [
+          72,
+          73,
+          74,
+          75,
+          76
+        ],
+        [
+          77,
+          78,
+          79,
+          80,
+          81
+        ],
+        [
+          82,
+          83,
+          84,
+          85,
+          86
+        ]
+      ]
+    },
+    "house_b": {
+      "w": 5,
+      "h": 4,
+      "tiles": [
+        [
+          87,
+          88,
+          89,
+          90,
+          91
+        ],
+        [
+          92,
+          93,
+          94,
+          95,
+          96
+        ],
+        [
+          97,
+          98,
+          99,
+          100,
+          101
+        ],
+        [
+          102,
+          103,
+          104,
+          105,
+          106
+        ]
+      ]
+    }
   }
 }

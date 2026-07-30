@@ -68,6 +68,7 @@ Die Maps sind **Tiled-kompatibles JSON** mit `collision`-Layer:
 - **Phaser 3** (Web-MMORPG): `this.load.tilemapTiledJSON(...)` — funktioniert direkt
 - **Unity**: SuperTiled2Unity
 - **Eigener Client**: `layers[].data` ist ein flaches Array aus Tile-IDs (gid−1), `collision`-Layer ≠ 0 = blockiert
+- Der `overlay`-Layer (Baumkronen) gehört ÜBER den Spieler-Sprite gerendert — so läuft die Figur hinter Bäumen entlang (Tiefenwirkung)
 
 Außerdem lohnt sich der **Tiled-Editor** (mapeditor.org, kostenlos): Damit
 kannst du jede von Claude gebaute Map von Hand nachpolieren — und Claude kann
