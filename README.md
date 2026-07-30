@@ -45,6 +45,37 @@ python3 tools/worldgen.py --seed 42  # Bonus: prozedurale Weltkarte/Minimap
 | `tools/worldgen.py` | Prozedurale Weltkarten (Biome, Relief, Flüsse, Städte) |
 | `output/` | Gerenderte Vorschauen |
 
+## Gemalter Look (kein Pixel-Art): KI-Bildgenerator anbinden
+
+Für handgemalte MMORPG-Optik wird Claude mit einem Bildgenerator verbunden.
+Claude liefert die **Struktur** (Layout, Biome, Kollision), die Bild-KI liefert
+die **Malerei** (img2img über das Layout — Geometrie bleibt spielbar), Claude
+**betrachtet und iteriert**. Das Skript dafür liegt bereit: `tools/stylize.py`.
+
+**Einmalige Einrichtung (5 Minuten, auf claude.ai/code):**
+
+1. Environment-Einstellungen dieses Projekts öffnen → **Netzwerkzugriff**:
+   `api.replicate.com` freigeben (oder vollen Netzwerkzugriff aktivieren).
+   Docs: https://code.claude.com/docs/en/claude-code-on-the-web
+2. Auf replicate.com einen Account anlegen und API-Token holen
+   (Pay-as-you-go, Flux-Bild ≈ 3 Cent).
+3. Den Token als Umgebungsvariable/Secret `REPLICATE_API_TOKEN` im
+   Environment hinterlegen.
+4. Claude sagen: *„Male die Weltkarte im Stil von <Referenz>"* — fertig.
+   Alternative: `OPENAI_API_KEY` + Freigabe von `api.openai.com` (gpt-image-1).
+
+**Spielbare Maps im gemalten Stil** funktionieren nach dem Prinzip vieler
+2D-MMOs: gemaltes Hintergrundbild + unsichtbare Kollisionsdaten. Claude
+rendert das Layout zonenweise, lässt jede Zone übermalen und behält die
+Kollisions-/Objektdaten aus `maps/*.json` — Spieler laufen auf der Malerei.
+
+**Alternativen ohne API:**
+- **ComfyUI/Stable Diffusion lokal** auf deinem PC (kostenlos, ControlNet
+  hält sich exakt an Claudes Layout) — Claude schreibt dir die Workflows.
+- **Gemalte (nicht-Pixel) Asset-Packs**: craftpix.net (auch gratis Sektion),
+  itch.io Suchbegriff "hand-painted tileset", Unity Asset Store.
+- **Artist beauftragen** fürs finale Tileset — Claude baut damit die Maps.
+
 ## Von "gut" zu "AAA": Profi-Tilesets einbinden
 
 Das generierte Starter-Tileset ist bewusst austauschbar. Für echte
