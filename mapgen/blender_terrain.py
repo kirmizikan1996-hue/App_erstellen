@@ -103,8 +103,8 @@ def terrain_material(data_dir):
     n1.inputs["Detail"].default_value = 8.0
     grass_mix = nt.nodes.new("ShaderNodeMix")
     grass_mix.data_type = "RGBA"
-    grass_mix.inputs["A"].default_value = (0.055, 0.105, 0.026, 1)
-    grass_mix.inputs["B"].default_value = (0.165, 0.180, 0.055, 1)
+    grass_mix.inputs["A"].default_value = (0.045, 0.135, 0.030, 1)
+    grass_mix.inputs["B"].default_value = (0.120, 0.210, 0.055, 1)
     nt.links.new(n1.outputs["Fac"], grass_mix.inputs["Factor"])
     n2 = nt.nodes.new("ShaderNodeTexNoise")
     n2.inputs["Scale"].default_value = 320.0
@@ -113,7 +113,7 @@ def terrain_material(data_dir):
     grass_fine.data_type = "RGBA"
     grass_fine.inputs["Factor"].default_value = 0.5
     nt.links.new(grass_mix.outputs["Result"], grass_fine.inputs["A"])
-    grass_fine.inputs["B"].default_value = (0.17, 0.165, 0.05, 1)
+    grass_fine.inputs["B"].default_value = (0.14, 0.20, 0.06, 1)
     nt.links.new(n2.outputs["Fac"], grass_fine.inputs["Factor"])
 
     # --- Fels: geschichtetes Grau-Braun fuer Waende
@@ -334,13 +334,88 @@ def add_bridges(layout, h, mat):
             r.data.materials.append(mat)
 
 
+def add_water():
+    """Wasserflaeche am Schluchtboden: aus den Schluchten werden Fluesse."""
+    bpy.ops.mesh.primitive_plane_add(size=EXTENT * 1.02, location=(0, 0, 1.35))
+    plane = bpy.context.active_object
+    mat = bpy.data.materials.new("Water")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    bsdf.inputs["Base Color"].default_value = (0.020, 0.075, 0.110, 1)
+    bsdf.inputs["Roughness"].default_value = 0.08
+    bsdf.inputs["Metallic"].default_value = 0.15
+    ripple = nt.nodes.new("ShaderNodeTexNoise")
+    ripple.inputs["Scale"].default_value = 55.0
+    ripple.inputs["Detail"].default_value = 8.0
+    ripple.inputs["Distortion"].default_value = 0.6
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 0.25
+    nt.links.new(ripple.outputs["Fac"], bump.inputs["Height"])
+    nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    plane.data.materials.append(mat)
+
+
+def tree_material():
+    mat = bpy.data.materials.new("Tree")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    bsdf.inputs["Roughness"].default_value = 0.9
+    n = nt.nodes.new("ShaderNodeTexNoise")
+    n.inputs["Scale"].default_value = 14.0
+    n.inputs["Detail"].default_value = 6.0
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].color = (0.018, 0.075, 0.020, 1)
+    ramp.color_ramp.elements[1].color = (0.060, 0.160, 0.045, 1)
+    nt.links.new(n.outputs["Fac"], ramp.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 0.9
+    nt.links.new(n.outputs["Fac"], bump.inputs["Height"])
+    nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    return mat
+
+
+def add_trees(layout, h, mat, max_trees=1400):
+    """Baumkronen als instanzierte, leicht verbeulte Kugeln (Top-Down
+    reicht die Krone — Staemme sind aus der Vogelperspektive unsichtbar)."""
+    size = layout["size"]
+    trees = layout.get("trees", [])
+    if len(trees) > max_trees:
+        rng = np.random.default_rng(1)
+        trees = [trees[i] for i in
+                 rng.choice(len(trees), max_trees, replace=False)]
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=1.0)
+    proto = bpy.context.active_object
+    # Krone organisch verbeulen
+    for v in proto.data.vertices:
+        d = 1.0 + 0.18 * math.sin(v.co.x * 7.3) * math.cos(v.co.y * 5.1) \
+            + 0.12 * math.sin(v.co.z * 9.7)
+        v.co *= d
+    proto.data.materials.append(mat)
+    rng = np.random.default_rng(2)
+    for t in trees:
+        x, y = world_xy(t["x"], t["y"], size)
+        z = height_at(h, t["x"], t["y"])
+        s = 0.55 * t.get("scale", 1.0) * (0.8 + rng.random() * 0.5)
+        obj = proto.copy()          # geteiltes Mesh -> speicherschonend
+        obj.location = (x + rng.normal(0, 0.1), y + rng.normal(0, 0.1),
+                        z + s * 0.55)
+        obj.scale = (s, s, s * 0.75)
+        obj.rotation_euler = (0, 0, rng.random() * 6.28)
+        bpy.context.collection.objects.link(obj)
+    proto.hide_render = True
+    proto.hide_viewport = True
+
+
 def setup_light_camera(res):
     bpy.ops.object.light_add(type="SUN", location=(0, 0, 60))
     sun = bpy.context.active_object
-    sun.data.energy = 4.5
-    sun.data.angle = math.radians(1.2)
-    sun.rotation_euler = (math.radians(38), 0, math.radians(130))
-    sun.data.color = (1.0, 0.95, 0.86)
+    sun.data.energy = 6.5
+    sun.data.angle = math.radians(1.6)
+    sun.rotation_euler = (math.radians(34), 0, math.radians(130))
+    sun.data.color = (1.0, 0.96, 0.88)
 
     bpy.ops.object.camera_add(location=(0, 0, 80), rotation=(0, 0, 0))
     cam = bpy.context.active_object
@@ -358,8 +433,10 @@ def setup_light_camera(res):
     world = scene.world
     world.use_nodes = True
     bg = world.node_tree.nodes["Background"]
-    bg.inputs["Color"].default_value = (0.45, 0.55, 0.70, 1)
-    bg.inputs["Strength"].default_value = 0.35
+    bg.inputs["Color"].default_value = (0.50, 0.62, 0.80, 1)
+    bg.inputs["Strength"].default_value = 0.65
+    scene.view_settings.look = "AgX - Punchy"
+    scene.view_settings.exposure = 0.35
 
 
 def main():
@@ -379,9 +456,11 @@ def main():
     terrain = make_terrain(args.data, h)
     terrain.data.materials.append(terrain_material(args.data))
 
-    print("[3/5] Felsen und Bruecken ...")
+    print("[3/5] Felsen, Bruecken, Wasser, Baeume ...")
     add_rocks(layout, h, rock_material())
     add_bridges(layout, h, wood_material())
+    add_water()
+    add_trees(layout, h, tree_material())
 
     print("[4/5] Licht und Kamera ...")
     setup_light_camera(args.res)

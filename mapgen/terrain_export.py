@@ -87,9 +87,34 @@ def main(size, seed, islands, out_dir):
         for (px, py) in ends:
             pdraw.line(bezier(px, py, cx, cy), fill=255, width=13,
                        joint="curve")
-    for a, b in touching:
-        pdraw.line(bezier(seeds[a][1], seeds[a][0], seeds[b][1], seeds[b][0]),
-                   fill=255, width=13, joint="curve")
+    # Beruehrende Inseln: Spannbaum + wenige kurze Extra-Wege statt
+    # Jeder-mit-Jedem (verhindert das Wege-Spinnennetz auf grossen Inseln)
+    if touching:
+        parent = list(range(len(seeds)))
+
+        def find(x):
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        edges = sorted(
+            touching,
+            key=lambda e: math.hypot(seeds[e[0]][0] - seeds[e[1]][0],
+                                     seeds[e[0]][1] - seeds[e[1]][1]))
+        keep, extra_budget = [], max(1, len(edges) // 5)
+        for a, b in edges:
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[ra] = rb
+                keep.append((a, b))
+            elif extra_budget > 0:
+                keep.append((a, b))
+                extra_budget -= 1
+        for a, b in keep:
+            pdraw.line(bezier(seeds[a][1], seeds[a][0],
+                              seeds[b][1], seeds[b][0]),
+                       fill=255, width=13, joint="curve")
 
     plaza_img = Image.new("L", (size, size), 0)
     zdraw = ImageDraw.Draw(plaza_img)
