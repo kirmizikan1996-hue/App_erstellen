@@ -409,6 +409,51 @@ def add_trees(layout, h, mat, max_trees=1400):
     proto.hide_viewport = True
 
 
+ROOF_OFFSET = math.pi / 4  # Kegel-Basisvertices liegen auf den Achsen,
+                           # Wuerfel-Ecken bei 45 Grad -> Dach passend drehen
+
+
+def add_houses(layout, h):
+    """Einfache Haeuser (Kubus + Pyramidendach) rings um Hauptstadt- und
+    Dorfplaetze — aus der Top-Down-Sicht tragen vor allem die Daecher."""
+    size = layout["size"]
+    wall_mat = bpy.data.materials.new("Wall")
+    wall_mat.use_nodes = True
+    wall_mat.node_tree.nodes["Principled BSDF"].inputs["Base Color"] \
+        .default_value = (0.62, 0.55, 0.44, 1)
+    roof_mat = bpy.data.materials.new("Roof")
+    roof_mat.use_nodes = True
+    rb = roof_mat.node_tree.nodes["Principled BSDF"]
+    rb.inputs["Base Color"].default_value = (0.28, 0.075, 0.05, 1)
+    rb.inputs["Roughness"].default_value = 0.85
+
+    rng = np.random.default_rng(5)
+    spots = [(layout["capital"], 2.6, 8, 1.25)] + \
+            [(v, 1.6, 5, 1.0) for v in layout["villages"]]
+    for center, ring_r, count, s in spots:
+        for i in range(count):
+            ang = i * 2 * math.pi / count + rng.normal(0, 0.15)
+            px = center["x"] + math.cos(ang) * ring_r * size / EXTENT
+            py = center["y"] + math.sin(ang) * ring_r * size / EXTENT
+            x, y = world_xy(px, py, size)
+            z = height_at(h, px, py)
+            rot = ang + math.pi / 2 + rng.normal(0, 0.2)
+            wh = 0.34 * s
+            half = 0.38 * s
+            bpy.ops.mesh.primitive_cube_add(
+                location=(x, y, z + wh / 2))
+            wall = bpy.context.active_object
+            wall.scale = (half, half, wh / 2)
+            wall.rotation_euler = (0, 0, rot)
+            wall.data.materials.append(wall_mat)
+            bpy.ops.mesh.primitive_cone_add(
+                vertices=4, radius1=half * 1.5, depth=0.30 * s,
+                location=(x, y, z + wh + 0.15 * s))
+            roof = bpy.context.active_object
+            roof.rotation_euler = (0, 0, rot + ROOF_OFFSET)
+            roof.data.materials.append(roof_mat)
+
+
 def setup_light_camera(res):
     bpy.ops.object.light_add(type="SUN", location=(0, 0, 60))
     sun = bpy.context.active_object
@@ -461,6 +506,7 @@ def main():
     add_bridges(layout, h, wood_material())
     add_water()
     add_trees(layout, h, tree_material())
+    add_houses(layout, h)
 
     print("[4/5] Licht und Kamera ...")
     setup_light_camera(args.res)
