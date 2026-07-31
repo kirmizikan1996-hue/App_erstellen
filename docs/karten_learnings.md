@@ -177,6 +177,72 @@ Arena weiter vergrößern, Umgebung dunkler/toter, mehr Kadaver-Silhouetten.
 
 ---
 
+## 5e. Der Maßstabsfehler — zwei Artefakte statt einem
+
+**Ein einzelnes PNG kann nicht gleichzeitig Übersichtskarte und begehbarer
+Boden sein.** Das war der Denkfehler in der ersten Runde.
+
+Die Zahlen, die es entschieden haben:
+
+| | |
+|---|---|
+| `maps/demo_village.json` | 48 × 36 Tiles = 1536 × 1152 px — für *ein* Dorf |
+| Gemalte Zonenkarte | 2048 × 2048 px — für 14 Inseln, 3 Städte, 4 Arenen |
+| Ein Haus im Tileset | 5 × 4 Tiles = **160 px** breit |
+| Eine ganze Stadt auf der gemalten Karte | **~200 px** breit |
+
+Ein einzelnes Haus ist also fast so groß wie dort eine komplette Stadt —
+Faktor ~10. Dazu kommt die Texeldichte: auf Spielergröße gezoomt ist im
+gemalten PNG schlicht keine Information mehr da, es wird Matsch.
+
+**Aufteilung, die funktioniert:**
+
+* **Übersichtskarte** — `zone_arena.py` + ComfyUI → gemaltes PNG.
+  Für Weltkarte, Minimap, Ladebildschirm.
+* **Begehbare Zone** — `zone_tiles.py` → Tiled-Map im 32-px-Raster mit
+  `ground`/`decoration`/`overlay`/`collision`. Darauf läuft der Spieler.
+
+Beide kommen aus **demselben** `layout.json` (Wege, Arenen, Dörfer, Bäume),
+darum zeigen sie dieselbe Welt.
+
+    python3 tools/make_tileset_painted.py                 # Tileset bauen
+    python3 mapgen/zone_arena.py --seed 7                 # Welt + Übersicht
+    python3 mapgen/zone_tiles.py --center capital --out maps/zone_hauptstadt.json
+    python3 mapgen/zone_tiles.py --center arena0 --out maps/zone_arena0.json
+    python3 tools/render_tilemap.py maps/zone_arena0.json --collision
+
+Eine Zone ist 128 × 128 Tiles = 4096 × 4096 px und deckt ~620 Welt-Pixel ab
+(≈4,8 Welt-px pro Tile). Ursprung und Maßstab stehen als `world_origin_x/y`
+und `world_px_per_tile` in den Map-Properties — damit lässt sich jede
+Zonenposition zurück auf die Weltkarte rechnen.
+
+---
+
+## 5f. Fallen beim Tile-Bau (alle selbst reingelaufen)
+
+* **Tile-Index 0 ist ein echtes Tile.** In Tiled bedeutet `0` „leer", die
+  Tileset-IDs fangen aber bei 0 an. `grass_1` hatte ID 0 → jedes vierte
+  Grasfeld wurde zum schwarzen Loch. Ground-Layer immer `id + 1` schreiben,
+  ohne `if`.
+* **Reihenfolge der Platzierung entscheidet.** Erst Wald, dann Häuser → es
+  passt kein Haus mehr an den Platzrand (18 Häuser wurden zu 1). Bebauung
+  zuerst, Deko danach.
+* **Abstand aus der Sprite-Größe rechnen.** Ein 5×4-Haus mit `pad=1` braucht
+  eine 7×6 freie Fläche; „knapp neben den Platz" reicht nicht, der halbe
+  Fußabdruck liegt sonst im Pflaster.
+* **Wang-Index 15 = komplett innen.** Nimmt man dafür weiter das
+  Übergangstile, besteht jede große Fläche aus *einem* wiederholten Tile und
+  sieht wie Tapete aus. Für 15 die Vollton-Varianten ziehen.
+* **Schneisen nicht als anderes Material durch die Arena ziehen** — sie
+  zerschneiden die Fläche in Fetzen. Gleiches Material, nur nach außen.
+* **Arenen brauchen eine Wand.** Ein Erdfleck im offenen Gras liest sich
+  nicht als Arena. Erst der Waldgürtel mit Lücken an den vier Schneisen
+  macht daraus eine Kampffläche, die man aus genau vier Richtungen betritt.
+* **Weltradius ≠ Zonenradius.** Die Arena 1:1 aus der Weltkarte übernommen
+  wären >40 Tiles — ein Drittel der Zone. Auf `tiles * 0.105` gedeckelt.
+
+---
+
 ## 6. Layout-Regeln fürs Gameplay
 
 Der Spieler **läuft** auf dieser Karte — das Layout muss das hergeben:

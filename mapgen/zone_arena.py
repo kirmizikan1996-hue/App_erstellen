@@ -539,6 +539,7 @@ def generate(size, seed, islands, out_dir):
                 # Zuweg von der Arena zum Inselzentrum
                 link = smooth_path((xi, yi), (sx, sy), rng)
                 draw_road(draw, link, rng, width=19, cobbled=False)
+                roads.append((link, 19, False))     # auch fuer die Tile-Zone
                 lanes = draw_arena(draw, block, xi, yi, r, rng, size)
                 arenas.append({"x": float(xi), "y": float(yi),
                                "radius": round(float(r), 1),
@@ -591,6 +592,12 @@ def generate(size, seed, islands, out_dir):
                    "villages": [{"x": float(seeds[v][1]), "y": float(seeds[v][0])}
                                 for v in villages],
                    "arenas": arenas,
+                   # Strassenverlaeufe: die begehbare Tile-Zone baut daraus
+                   # dieselben Wege, damit Uebersichtskarte und Zone passen
+                   "roads": [{"width": w, "paved": bool(c),
+                              "points": [[round(px, 1), round(py, 1)]
+                                         for px, py in pts]}
+                             for pts, w, c in roads],
                    "bridges": bridge_meta,
                    "trees": [{"x": x, "y": y, "scale": round(r / 5.5, 2)}
                              for x, y, r in trees]}, f, indent=2)
