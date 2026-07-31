@@ -243,6 +243,41 @@ Zonenposition zurück auf die Weltkarte rechnen.
 
 ---
 
+## 5g. Die Tile-Zone gemalt bekommen (Pixel-Look weg)
+
+32-px-Tiles *sind* Pixel-Art — das handgeschriebene Tileset erreicht nie die
+Qualität, die SDXL malt. Lösung: die **fertig gerenderte Zone** kachelweise
+durch ComfyUI schicken.
+
+    python3 tools/comfy_paint_tiles.py output/zone.png --out output/zone_painted.png \
+        --prompt "hand-painted top-down fantasy RPG map, ..." --denoise 0.35
+
+Warum kachelweise: SDXL ist auf 1024 trainiert. 4096 × 4096 am Stück
+verdoppelt Details. Also 1024er-Kacheln mit 128 px Überlappung, Gewichtsmaske
+mit weichem Rand, aufsummiert und normalisiert → **keine sichtbaren Nähte**.
+Gleicher Seed für alle Kacheln hält den Stil konsistent. Dauer: ~4 min für
+25 Kacheln auf der 4090.
+
+**Denoise-Grenze ist hier eine andere als bei der Übersichtskarte:**
+
+| Denoise | Ergebnis |
+|---|---|
+| 0.35 | Pixel-Look weg, Geometrie exakt — aber flach, Bäume werden Blobs |
+| 0.45 | deutlich malerischer |
+| 0.50+ | **gefährlich**: erfindet Mauern, Steinbögen, Hecken |
+
+Das Erfinden ist bei begehbaren Karten ein echter Fehler, kein Schönheits-
+problem: was gemalt wie eine Mauer aussieht, ist in `collision.png`
+begehbar — der Spieler läuft durch die Wand. Deshalb bei begehbarem Boden
+**nicht über ~0.45**.
+
+**Was das kostet:** Das Ergebnis ist ein großes Bild, keine Tiles mehr. Die
+Tilemap bleibt die Wahrheit für Kollision und Gameplay, das gemalte PNG legt
+sich als reine Optik darüber. Tile-Wiederverwendung ist damit weg, und jede
+Layout-Änderung heißt neu malen.
+
+---
+
 ## 6. Layout-Regeln fürs Gameplay
 
 Der Spieler **läuft** auf dieser Karte — das Layout muss das hergeben:
