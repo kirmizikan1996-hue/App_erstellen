@@ -377,34 +377,50 @@ def tree_material():
     return mat
 
 
-def add_trees(layout, h, mat, max_trees=1400):
-    """Baumkronen als instanzierte, leicht verbeulte Kugeln (Top-Down
-    reicht die Krone — Staemme sind aus der Vogelperspektive unsichtbar)."""
+def add_trees(layout, h, mat, max_trees=550, min_dist=2.0):
+    """Weniger, dafuer schoenere Baeume: mehrlappige Kronen (Haupt-Kugel +
+    2 Nebenlappen), starke Groessenvariation, Mindestabstand — so bleiben
+    die Sonnenschatten der einzelnen Baeume sichtbar."""
     size = layout["size"]
     trees = layout.get("trees", [])
-    if len(trees) > max_trees:
-        rng = np.random.default_rng(1)
-        trees = [trees[i] for i in
-                 rng.choice(len(trees), max_trees, replace=False)]
+    rng = np.random.default_rng(1)
+    rng.shuffle(trees)
+    # Ausduennen mit Mindestabstand (Weltkoordinaten)
+    kept, cells = [], set()
+    for t in trees:
+        x, y = world_xy(t["x"], t["y"], size)
+        key = (int(x / min_dist), int(y / min_dist))
+        if key in cells:
+            continue
+        cells.add(key)
+        kept.append((t, x, y))
+        if len(kept) >= max_trees:
+            break
+
     bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=1.0)
     proto = bpy.context.active_object
-    # Krone organisch verbeulen
     for v in proto.data.vertices:
-        d = 1.0 + 0.18 * math.sin(v.co.x * 7.3) * math.cos(v.co.y * 5.1) \
-            + 0.12 * math.sin(v.co.z * 9.7)
+        d = 1.0 + 0.20 * math.sin(v.co.x * 7.3) * math.cos(v.co.y * 5.1) \
+            + 0.14 * math.sin(v.co.z * 9.7)
         v.co *= d
     proto.data.materials.append(mat)
     rng = np.random.default_rng(2)
-    for t in trees:
-        x, y = world_xy(t["x"], t["y"], size)
+    for t, x, y in kept:
         z = height_at(h, t["x"], t["y"])
-        s = 0.55 * t.get("scale", 1.0) * (0.8 + rng.random() * 0.5)
-        obj = proto.copy()          # geteiltes Mesh -> speicherschonend
-        obj.location = (x + rng.normal(0, 0.1), y + rng.normal(0, 0.1),
-                        z + s * 0.55)
-        obj.scale = (s, s, s * 0.75)
-        obj.rotation_euler = (0, 0, rng.random() * 6.28)
-        bpy.context.collection.objects.link(obj)
+        s = 0.62 * t.get("scale", 1.0) * (0.7 + rng.random() * 0.9)
+        # Hauptkrone + 2 kleinere Lappen -> organische Silhouette
+        lobes = [(0.0, 0.0, 1.0)]
+        for _ in range(2):
+            ang = rng.random() * 6.28
+            lobes.append((math.cos(ang) * s * 0.55,
+                          math.sin(ang) * s * 0.55,
+                          0.55 + rng.random() * 0.25))
+        for ox, oy, ls in lobes:
+            obj = proto.copy()
+            obj.location = (x + ox, y + oy, z + s * ls * 0.6)
+            obj.scale = (s * ls, s * ls, s * ls * 0.75)
+            obj.rotation_euler = (0, 0, rng.random() * 6.28)
+            bpy.context.collection.objects.link(obj)
     proto.hide_render = True
     proto.hide_viewport = True
 
