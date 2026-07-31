@@ -1,0 +1,6 @@
+{
+  "size": 2048,
+  "seed": 7,
+  "water_below_elevation": 0.4,
+  "mountain_above_elevation": 0.78
+}
