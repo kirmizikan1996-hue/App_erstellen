@@ -428,8 +428,8 @@ def add_houses(layout, h):
     rb.inputs["Roughness"].default_value = 0.85
 
     rng = np.random.default_rng(5)
-    spots = [(layout["capital"], 2.6, 8, 1.25)] + \
-            [(v, 1.6, 5, 1.0) for v in layout["villages"]]
+    spots = [(layout["capital"], 2.6, 9, 1.7)] + \
+            [(v, 1.6, 5, 1.35) for v in layout["villages"]]
     for center, ring_r, count, s in spots:
         for i in range(count):
             ang = i * 2 * math.pi / count + rng.normal(0, 0.15)
