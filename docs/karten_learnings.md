@@ -383,6 +383,46 @@ große Lager laden zum Gruppen-Pull ein, kleine sind Einzelnester.
 
 ---
 
+## 5j. Skalieren für ein farmlastiges Spiel
+
+Standardgröße ist jetzt **256 × 256 Tiles = 8192 × 8192 px** mit **84 Lagern**.
+
+Beim Vergrößern muss man zwei Dinge mit der **Fläche** skalieren, nicht mit
+der Kantenlänge — sonst ändert sich der Charakter der Karte:
+
+    Knoten   = N² / 1160     # hält die Taschengröße konstant
+    Lager    = N² / 780      # hält die Farmdichte konstant
+
+Bei fixer Knotenzahl würde eine größere Karte riesige leere Taschen
+bekommen, bei fixer Lagerzahl würde die Farmdichte einbrechen.
+
+**Mehrere Kerngebiete statt einem.** Ein einziger Hotspot lässt den Rest der
+Karte tot wirken; drei Reviere (je ~0,20 · N Radius) geben mehrere Orte mit
+Betrieb und dazwischen ruhigere Zonen.
+
+**Lagertypen statt einer Schablone.** 84 identische Zeltlager sehen aus wie
+Copy-Paste. Fünf Typen mit gleicher Mechanik, aber eigener Optik:
+
+| Typ | Boden | Ausstattung |
+|---|---|---|
+| banditen | zertreten | Zelte, Feuerstellen, Zaunring |
+| untote | zertreten | Schädel, Knochen, Totem |
+| bestien | zertreten | Baumstämme, Knochen, Felsen |
+| spinnen | **bleibt Gras** | hohes Gras, Pilze |
+| ruine | zertreten | Felsen, Schädel, Totem |
+
+Das Spinnennest bleibt bewusst im hohen Gras — nicht jedes Revier muss eine
+kahle Fläche sein, sonst sieht die Karte wieder gleichförmig aus.
+
+**Fels braucht Varianten.** Eine einzige Graustufe lässt Bergrahmen und
+Felsnasen wie Beton aussehen. Drei Varianten mit Moos in den Fugen und
+Flechten binden den Fels ans Gras an.
+
+Renderzeit: das 8192er-PNG dauert einige Minuten — für schnelle Iteration
+mit `--tiles 160` arbeiten und erst am Ende groß rendern.
+
+---
+
 ## 6. Layout-Regeln fürs Gameplay
 
 Der Spieler **läuft** auf dieser Karte — das Layout muss das hergeben:

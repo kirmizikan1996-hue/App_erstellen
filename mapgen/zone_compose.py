@@ -168,12 +168,31 @@ def road_web(N, nodes, land, rng, loop_ratio=0.55):
 
 # ---------------------------------------------------------- Monsterlager ----
 
-def place_camps(N, terr, road_d, rng, core, n_max=26):
+# Lagertypen: gleiche Mechanik, unterschiedliche Optik. 70 identische
+# Zeltlager wirken wie Schablone — verschiedene Reviere geben der Karte
+# Charakter und dem Spieler eine Orientierung, wo er gerade farmt.
+CAMP_TYPES = {
+    "banditen": {"floor": True, "props": ["campfire", "bones", "campfire"],
+                 "sprites": ["tent", "tent"], "ring": "fence"},
+    "untote":   {"floor": True, "props": ["skull", "bones", "bones", "skull"],
+                 "sprites": ["totem"], "ring": "boulder"},
+    "bestien":  {"floor": True, "props": ["log", "bones", "boulder", "log"],
+                 "sprites": [], "ring": "boulder"},
+    "spinnen":  {"floor": False, "props": ["tall_grass", "mushrooms",
+                                           "tall_grass", "tall_grass"],
+                 "sprites": [], "ring": "boulder"},
+    "ruine":    {"floor": True, "props": ["boulder", "skull", "tall_grass"],
+                 "sprites": ["totem"], "ring": "boulder"},
+}
+TYPE_ORDER = list(CAMP_TYPES)
+
+
+def place_camps(N, terr, road_d, rng, cores, n_max):
     """Lager in die Taschen zwischen den Wegen setzen.
 
     Greedy groesster freier Kreis: immer dort, wo gerade am meisten Platz
-    ist. Im Kerngebiet duerfen die Lager dichter stehen — so entsteht ein
-    Jagdgebiet mit hoher Dichte und ruhigere Randzonen, statt gleichmaessig
+    ist. In den Kerngebieten duerfen die Lager dichter stehen — so entstehen
+    Jagdreviere mit Betrieb und ruhigere Randzonen, statt gleichmaessig
     verteilter Langeweile.
     """
     free = (terr == GRASS) & (road_d > 3.0)
@@ -186,13 +205,14 @@ def place_camps(N, terr, road_d, rng, core, n_max=26):
         space = float(d[y, x])
         if space < 4.5:
             break
-        # Groesse streuen: 26 gleich grosse Kreise wirken wie Schablone.
+        # Groesse streuen: gleich grosse Kreise wirken wie Schablone.
         # Grosse Lager = Gruppen-Pull, kleine = einzelne Nester.
-        r = min(space * 0.66, 8.5) * (0.62 + rng.random() * 0.55)
-        inner = core[y, x]
+        r = min(space * 0.66, 9.5) * (0.60 + rng.random() * 0.60)
+        inner = any(c[y, x] for c in cores)
         camps.append({"x": int(x), "y": int(y), "r": round(r, 1),
-                      "tier": "kern" if inner else "rand"})
-        clear = r * (1.9 if inner else 3.1)   # im Kern duerfen sie dichter
+                      "tier": "kern" if inner else "rand",
+                      "type": TYPE_ORDER[int(rng.integers(len(TYPE_ORDER)))]})
+        clear = r * (1.75 if inner else 2.9)   # im Kern duerfen sie dichter
         d[(xx - x) ** 2 + (yy - y) ** 2 < clear * clear] = 0
     return camps
 
@@ -232,10 +252,12 @@ def compose(N, rng):
     land = ~np.isin(terr, (WATER, ROCK))
 
     # --- Wegenetz ----------------------------------------------------------
-    # Wenige Knoten + duenne Wege: das Verhaeltnis entscheidet. Mit 34 Knoten
-    # und 4,8 Tiles Breite verschmilzt das Netz zu einer einzigen braunen
-    # Flaeche — die Taschen muessen deutlich groesser sein als der Weg breit.
-    nodes = poisson(N, 22, N * 0.10, rng, land)
+    # Wenige Knoten + duenne Wege: das Verhaeltnis entscheidet. Mit zu vielen
+    # Knoten verschmilzt das Netz zu einer braunen Flaeche — die Taschen
+    # muessen deutlich groesser sein als der Weg breit. Knotenzahl mit der
+    # FLAECHE skalieren, damit die Taschengroesse bei jeder Kartengroesse gleich
+    # bleibt.
+    nodes = poisson(N, max(12, int(N * N / 1160)), N * 0.08, rng, land)
     paths, edges = road_web(N, nodes, land, rng, loop_ratio=0.38)
     segs = [s for p in paths for s in path_segs(p)]
     road_d = dist_to_segments(N, segs)
@@ -327,15 +349,19 @@ def compose(N, rng):
     plan["ponds"] = ponds
 
     # --- Monsterlager in die Taschen ---------------------------------------
-    # Kerngebiet = dichtes Jagdgebiet, wie der gruene Cluster im Vorbild
-    core_c = (N * 0.34, N * 0.42)
-    core = np.hypot(xx - core_c[0], yy - core_c[1]) < N * 0.30
-    camps = place_camps(N, terr, road_d, rng, core)
+    # Mehrere Kerngebiete = mehrere Jagdreviere mit hoher Dichte, dazwischen
+    # ruhigere Zonen. Ein einziger Kern gibt der Karte nur einen Hotspot.
+    core_cs = [(N * 0.30, N * 0.34), (N * 0.24, N * 0.72), (N * 0.80, N * 0.62)]
+    cores = [np.hypot(xx - cx_, yy - cy_) < N * 0.20 for cx_, cy_ in core_cs]
+    camps = place_camps(N, terr, road_d, rng, cores,
+                        n_max=max(20, int(N * N / 780)))
     for c in camps:
+        if not CAMP_TYPES[c["type"]]["floor"]:
+            continue          # Spinnennester bleiben im hohen Gras
         f = blob_field(N, c["x"], c["y"], c["r"], rng, rough=0.30)
         lay(terr, (f < 1.5) & (terr == GRASS), DIRT)
         lay(terr, (f < 0) & np.isin(terr, (GRASS, DIRT)), ARENA)
-    plan["camps"], plan["core"] = camps, core_c
+    plan["camps"], plan["cores"] = camps, core_cs
 
     return terr, plan
 
@@ -346,7 +372,7 @@ def build_ground(terr, ids, rng, N):
     cs = {name: combos(terr == code) for name, code in order}
     full = {"water": ["water"], "cobble": ["cobble_1", "cobble_2"],
             "arena": ["arena_1", "arena_2"], "farm": ["farm_1", "farm_2"],
-            "rock": ["rock"], "sand": ["sand_1", "sand_2"],
+            "rock": ["rock", "rock_2", "rock_3"], "sand": ["sand_1", "sand_2"],
             "dirt": ["dirt_1", "dirt_2"]}
     grass_pool = [ids[f"grass_{i}"] for i in range(1, 5)]
     flower_pool = [ids["grass_flowers_red"], ids["grass_flowers_blue"],
@@ -374,7 +400,7 @@ def build_ground(terr, ids, rng, N):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tiles", type=int, default=160)
+    ap.add_argument("--tiles", type=int, default=256)
     ap.add_argument("--seed", type=int, default=12)
     ap.add_argument("--tileset", default="assets/tilesets/painted")
     ap.add_argument("--out", default="maps/zone_furt.json")
@@ -460,43 +486,62 @@ def main():
                     deco[y, x] = ids["bridge_h"]
                     block[y, x] = False
 
-    # Monsterlager ausstatten: Feuerstelle, Knochen, Zelte, Felsen am Rand
-    camp_props = [ids["bones"], ids["bones"], ids["skull"], ids["campfire"]]
+    # Lager nach Typ ausstatten — Banditenlager, Untotenfeld, Bestienhoehle,
+    # Spinnennest und Ruine sehen unterschiedlich aus, obwohl die Mechanik
+    # dieselbe ist. Das gibt dem Spieler Orientierung, wo er gerade farmt.
     for c in plan["camps"]:
         cx_, cy_, r = c["x"], c["y"], c["r"]
-        if 0 <= cy_ < N and 0 <= cx_ < N and not deco[cy_, cx_]:
-            deco[cy_, cx_] = ids["campfire"]
-        for _ in range(int(r * r * 0.55)):
+        spec = CAMP_TYPES[c["type"]]
+        props = [ids[p] for p in spec["props"]]
+        floor = ARENA if spec["floor"] else GRASS
+
+        if 0 <= cy_ < N and 0 <= cx_ < N and not deco[cy_, cx_] \
+                and terr[cy_, cx_] == floor:
+            deco[cy_, cx_] = props[0]
+        for _ in range(int(r * r * 0.75)):
             t = rng.random() * 2 * math.pi
-            d = r * math.sqrt(rng.random()) * 0.9
+            d = r * math.sqrt(rng.random()) * 0.92
             x, y = int(cx_ + math.cos(t) * d), int(cy_ + math.sin(t) * d)
-            if 0 <= x < N and 0 <= y < N and terr[y, x] == ARENA \
+            if 0 <= x < N and 0 <= y < N and terr[y, x] == floor \
                     and not over[y, x] and not deco[y, x]:
-                deco[y, x] = camp_props[int(rng.integers(len(camp_props)))]
-        if c["tier"] == "kern":
-            for k in range(2):
-                t = 1.1 + k * 2.4
-                x = int(cx_ + math.cos(t) * r * 0.55)
-                y = int(cy_ + math.sin(t) * r * 0.55)
-                if 0 <= x < N - 1 and 0 <= y < N - 1 and terr[y, x] == ARENA \
-                        and not over[y, x]:
-                    put("tent", x, y)
-        n_ring = max(8, int(r * 1.5))
+                deco[y, x] = props[int(rng.integers(len(props)))]
+
+        for k, name in enumerate(spec["sprites"]):
+            if c["tier"] != "kern" and k > 0:
+                break                     # Randlager bleiben schlichter
+            t = 1.1 + k * 2.4
+            x = int(cx_ + math.cos(t) * r * 0.55)
+            y = int(cy_ + math.sin(t) * r * 0.55)
+            if 0 <= x < N - 2 and 0 <= y < N - 2 and terr[y, x] == floor \
+                    and not over[y, x]:
+                put(name, x, y)
+
+        n_ring = max(8, int(r * 1.6))
         for k in range(n_ring):
             t = k * 2 * math.pi / n_ring
-            x, y = int(cx_ + math.cos(t) * r * 1.15), int(cy_ + math.sin(t) * r * 1.15)
-            if 0 <= x < N and 0 <= y < N and terr[y, x] == GRASS \
-                    and not over[y, x] and not deco[y, x] and rng.random() < 0.55:
+            x = int(cx_ + math.cos(t) * r * 1.15)
+            y = int(cy_ + math.sin(t) * r * 1.15)
+            if not (0 <= x < N and 0 <= y < N) or over[y, x] or deco[y, x]:
+                continue
+            if terr[y, x] != GRASS or rng.random() > 0.55:
+                continue
+            if spec["ring"] == "fence":
+                deco[y, x] = ids["fence_h"] if abs(math.sin(t)) < 0.5 \
+                    else ids["fence_v"]
+            else:
                 deco[y, x] = ids["boulder"]
-                block[y, x] = True
+            block[y, x] = True
 
+    # Die grosse Arena ist kein Lager, sondern der Bossplatz — eigene,
+    # groebere Ausstattung
     ax, ay, ar, lanes = plan["arena"]
-    for _ in range(int(math.pi * ar * ar * 0.08)):
+    arena_props = [ids["bones"], ids["skull"], ids["campfire"], ids["boulder"]]
+    for _ in range(int(math.pi * ar * ar * 0.09)):
         t = rng.random() * 2 * math.pi
         d = ar * math.sqrt(rng.random()) * 0.9
         x, y = int(ax + math.cos(t) * d), int(ay + math.sin(t) * d)
         if 0 <= x < N and 0 <= y < N and terr[y, x] == ARENA and not deco[y, x]:
-            deco[y, x] = camp_props[int(rng.integers(len(camp_props)))]
+            deco[y, x] = arena_props[int(rng.integers(len(arena_props)))]
 
     nests = [(ids["tall_grass"], 30, 7.0), (ids["mushrooms"], 12, 3.5),
              (ids["boulder"], 14, 4.5), (ids["log"], 9, 3.0)]

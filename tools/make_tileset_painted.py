@@ -217,14 +217,26 @@ def water(v=0):
 
 
 def rock_ground(v=0):
+    """Fels mit Rissen, Moosflecken und Flechten.
+
+    Eine einzige flache Graustufe laesst Bergrahmen und Felsnasen wie
+    Beton aussehen — deshalb mehrere Varianten mit Bewuchs.
+    """
     r = np.random.default_rng(70 + v)
     img = canvas()
-    mottle(img, ALL, P["rock_dk"], P["rock_lt"], cells=4, r=r)
+    mottle(img, ALL, P["rock_dk"], P["rock_lt"], cells=3 + v, r=r)
     for _ in range(7):                                    # Risse
         y, x = r.integers(2, TILE - 2, 2)
         for t in range(int(r.integers(4, 10))):
             py, px = min(TILE - 1, y + t), min(TILE - 1, x + int(r.integers(-1, 2)))
             img[py, px, :3] = P["rock_dk"]
+    # Moos in den Fugen: bricht das Grau auf und bindet den Fels ans Gras
+    moss = fbm((TILE, TILE), 3, 2, r)
+    m = moss > (0.62 - v * 0.06)
+    img[..., :3][m] = img[..., :3][m] * 0.55 + np.array((74, 104, 56)) * 0.45
+    for _ in range(5 + v * 3):                            # Flechten
+        y, x = r.integers(1, TILE - 2, 2)
+        img[y:y + 2, x:x + 2, :3] = (150, 158, 132)
     img[..., 3] = 255
     toplight(img, ALL, 0.08)
     return img
@@ -718,6 +730,8 @@ def build():
         add(f"arena_{i + 1}", arena_floor(i))
     add("water", water(0))
     add("rock", rock_ground(0))
+    add("rock_2", rock_ground(1))
+    add("rock_3", rock_ground(2))
     for i in range(2):
         add(f"sand_{i + 1}", sand(i))
     for i in range(2):
