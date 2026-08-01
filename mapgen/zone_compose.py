@@ -595,6 +595,35 @@ def main():
     with open(a.out, "w") as f:
         json.dump(tmap, f)
 
+    # --- TMX daneben schreiben ---------------------------------------------
+    # SuperTiled2Unity (der Unity-Importer) liest .tmx, nicht Tiled-JSON.
+    # Dieselben Daten, nur XML mit CSV-kodierten Ebenen.
+    ts = tmap["tilesets"][0]
+    xml = ['<?xml version="1.0" encoding="UTF-8"?>',
+           f'<map version="1.10" tiledversion="1.10.2" orientation="orthogonal"'
+           f' renderorder="right-down" width="{N}" height="{N}"'
+           f' tilewidth="{meta["tile_size"]}" tileheight="{meta["tile_size"]}"'
+           f' infinite="0" nextlayerid="5" nextobjectid="1">',
+           f' <tileset firstgid="1" name="painted"'
+           f' tilewidth="{meta["tile_size"]}" tileheight="{meta["tile_size"]}"'
+           f' tilecount="{meta["count"]}" columns="{meta["columns"]}">',
+           f'  <image source="{ts["image"]}" width="{ts["imagewidth"]}"'
+           f' height="{ts["imageheight"]}"/>',
+           ' </tileset>']
+    for lyr in tmap["layers"]:
+        vis = '' if lyr["visible"] else ' visible="0"'
+        xml.append(f' <layer id="{lyr["id"]}" name="{lyr["name"]}"'
+                   f' width="{N}" height="{N}"{vis}>')
+        xml.append('  <data encoding="csv">')
+        d = lyr["data"]
+        xml.append(",\n".join(",".join(str(v) for v in d[r * N:(r + 1) * N])
+                              for r in range(N)))
+        xml.append('  </data>')
+        xml.append(' </layer>')
+    xml.append('</map>')
+    with open(os.path.splitext(a.out)[0] + ".tmx", "w") as f:
+        f.write("\n".join(xml))
+
     # --- Beigaben fuer Unity ----------------------------------------------
     # Der collision-Layer im Tiled-JSON traegt zwar die Info, aber als
     # Tile-IDs — unbrauchbar ohne Importer. Deshalb zusaetzlich eine
