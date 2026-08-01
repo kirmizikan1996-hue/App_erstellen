@@ -336,6 +336,53 @@ prüfen**, nicht gegen den Plan.
 
 ---
 
+## 5i. Das Metin2-Modell: Wegenetz → Taschen → Spawns
+
+Vorbild war die Pyungmoo-Karte aus Metin2. Sie macht drei Dinge, die eine
+Karte lebendig machen:
+
+1. **Dichtes Wegenetz mit Schleifen** statt eines Sterns. Die Wege verbinden
+   sich untereinander, es gibt Rundwege und Abkürzungen.
+2. **Die Wege zerschneiden das Land in Taschen** — und genau dort sitzen die
+   Monsterlager.
+3. **Berge rahmen** die Karte und begrenzen das Spielfeld natürlich.
+
+Punkt 2 war die eigentliche Erkenntnis: *ohne Wegenetz gibt es keine
+Taschen, und ohne Taschen keine sinnvollen Spawn-Plätze* — deshalb wirkten
+die großen grünen Flächen vorher leer, egal wie viel Deko drin lag.
+
+**Umsetzung** in `zone_compose.py`:
+
+* Knoten per Poisson verteilen → Delaunay → **Spannbaum + Extrakanten**.
+  Nur der Spannbaum wäre wieder ein Baum ohne Schleifen; die Extrakanten
+  (`loop_ratio`) erzeugen die Rundwege. Kanten, die Wasser kreuzen, fallen
+  raus — Flussübergänge nur an den gesetzten Furten.
+* Lager per **Greedy größter freier Kreis**: Distanztransformation auf
+  „Wiese und weit genug vom Weg", immer das nächste Lager dorthin, wo gerade
+  am meisten Platz ist, dann die Umgebung ausnullen.
+* **Dichtezonen**: im Kerngebiet ist der Ausnull-Radius kleiner → dichtes
+  Jagdgebiet wie der grüne Cluster im Vorbild, ruhigere Randzonen außen.
+  Jedes Lager bekommt `tier` (kern/rand) und landet als `monster_camps` in
+  den Map-Properties für Unity.
+
+### Das Verhältnis Wegbreite zu Taschengröße entscheidet
+
+Erster Versuch: 34 Knoten, Wege 4,8 Tiles breit → **23 % der Zone war Weg**,
+das Netz verschmolz zu einer einzigen braunen Fläche mit grünen Dreiecken
+dazwischen. Genau umgekehrt wie im Vorbild.
+
+Richtig: **wenige Knoten, dünne Wege.** 22 Knoten auf 160 Tiles ergibt
+~34 Tiles Knotenabstand; bei 2,6 Tiles Wegbreite bleiben Taschen von ~30
+Tiles. Die Taschen müssen um ein Vielfaches größer sein als der Weg breit.
+
+Ebenso deckeln: Der Bergrahmen mit `0.055 · N · (1 + 1.5 · noise)` wurde
+stellenweise 22 Tiles dick. `0.030 · N · (1 + 1.0 · noise)` reicht.
+
+Und: **Lagergrößen streuen.** 26 gleich große Kreise wirken wie Schablone —
+große Lager laden zum Gruppen-Pull ein, kleine sind Einzelnester.
+
+---
+
 ## 6. Layout-Regeln fürs Gameplay
 
 Der Spieler **läuft** auf dieser Karte — das Layout muss das hergeben:

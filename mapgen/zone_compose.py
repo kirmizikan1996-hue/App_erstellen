@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
-"""Komponierte Spielzone — bewusst gestaltet statt zufaellig gestreut.
+"""Komponierte Spielzone im Stil klassischer MMORPG-Karten (Metin2/Pyungmoo).
 
-Warum neu: Die aus der Weltkarte geschnittene Zone (zone_tiles.py) ist
-langweilig — ein runder Platz, ein Ring gleicher Haeuser, ueberall dasselbe
-Gras, Strassen die sternfoermig vom Zentrum wegzeigen. Kein Denoise-Wert
-repariert ein langweiliges Layout.
+Das Vorbild macht drei Dinge, die eine Karte lebendig machen:
 
-Was eine Zone interessant macht und hier drinsteckt:
-  * Terrainvielfalt   Meer, Fluss, Strand, Acker, Hochland-Fels, Wiese
-  * Hoehenstruktur    Plateau im Nordwesten, nur ueber einen Pass erreichbar
-  * Engstellen        Fluss teilt die Zone, zwei Bruecken sind die Uebergaenge
-  * Landmarken        Stadt an der Furt, Arena in einer Felssenke, Ruine oben
-  * Wege mit Grund    die Strasse kurvt um Fels und Fluss, nicht ins Nichts
-  * Stadt mit Strassen statt Ring: Hauptstrasse, Querstrassen, Marktplatz
+  1. Ein DICHTES WEGENETZ MIT SCHLEIFEN statt eines Sterns. Die Wege
+     verbinden sich untereinander, es gibt Rundwege und Abkuerzungen.
+  2. Die Wege zerschneiden das Land in TASCHEN — und genau dort sitzen die
+     Monsterlager. Ohne Wegenetz gibt es keine Taschen, und ohne Taschen
+     keine sinnvollen Spawn-Plaetze; die Flaeche wirkt leer.
+  3. BERGE RAHMEN die Karte und begrenzen das Spielfeld natuerlich.
+
+Dazu kommt die Komposition aus der Vorversion: Fluss mit Furten, Meer mit
+Strand, Stadt an der Furt, Aecker, Arena im Felskessel.
 
 Baeume kommen bewusst NICHT vor — das Terrain muss ohne sie tragen.
 
@@ -25,6 +24,9 @@ import os
 import sys
 
 import numpy as np
+from scipy.ndimage import distance_transform_edt
+from scipy.sparse.csgraph import minimum_spanning_tree
+from scipy.spatial import Delaunay
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from zone_tiles import combos, load_meta
@@ -34,9 +36,9 @@ WATER, GRASS, DIRT, COBBLE, ARENA, SAND, ROCK, FARM = range(8)
 
 # --------------------------------------------------------- Distanzfelder ----
 # Terrain wird NICHT durch aneinandergereihte Kreise gestempelt — das gibt
-# ausgefranste Treppenraender und Wege, die wie Matschflecken aussehen.
-# Stattdessen: Abstand zur Mittellinie bzw. zum Zentrum ausrechnen und
-# schwellen. Ergebnis: konstante Wegbreite, glatte Kanten.
+# ausgefranste Treppenraender und Wege wie Matschflecken. Stattdessen den
+# Abstand zur Mittellinie ausrechnen und schwellen: konstante Breite,
+# glatte Kanten.
 
 def _vnoise(N, cells, rng):
     g = rng.random((cells + 2, cells + 2))
@@ -61,24 +63,31 @@ def fbm2(N, rng, base=4, oct_=3):
     return out / tot
 
 
-def dist_to_path(N, pts):
-    """Abstand jedes Feldes zur Polylinie — Grundlage fuer saubere Wege."""
+def dist_to_segments(N, segs):
+    """Kleinster Abstand jedes Feldes zu einer Menge von Strecken."""
     yy, xx = np.mgrid[0:N, 0:N].astype(np.float32)
     best = np.full((N, N), 1e9, dtype=np.float32)
-    for i in range(1, len(pts)):
-        ax, ay = pts[i - 1]
-        bx, by = pts[i]
+    for ax, ay, bx, by in segs:
         dx, dy = bx - ax, by - ay
         L2 = dx * dx + dy * dy
         if L2 < 1e-9:
             continue
         t = np.clip(((xx - ax) * dx + (yy - ay) * dy) / L2, 0, 1)
-        best = np.minimum(best, np.hypot(xx - (ax + t * dx), yy - (ay + t * dy)))
+        np.minimum(best, np.hypot(xx - (ax + t * dx), yy - (ay + t * dy)),
+                   out=best)
     return best
 
 
+def path_segs(pts):
+    return [(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1])
+            for i in range(1, len(pts))]
+
+
+def dist_to_path(N, pts):
+    return dist_to_segments(N, path_segs(pts))
+
+
 def blob_field(N, cx, cy, r, rng, rough=0.20, cells=3):
-    """Radialer Abstand mit welliger Kante — <0 heisst innen."""
     yy, xx = np.mgrid[0:N, 0:N].astype(np.float32)
     n = fbm2(N, rng, cells, 3) - 0.5
     return np.hypot(xx - cx, yy - cy) - r * (1.0 + rough * 2.0 * n)
@@ -88,201 +97,250 @@ def lay(terr, mask, value):
     terr[mask] = value
 
 
-def bez(p0, p1, p2, n=60):
+def bez(p0, p1, p2, n=18):
     return [((1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0],
              (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1])
             for t in np.linspace(0, 1, n)]
 
 
-def wobble(pts, rng, amp=1.6):
-    """Leichtes Schlenkern — perfekt gerade Linien wirken tot."""
-    out = []
-    for i, (x, y) in enumerate(pts):
-        f = math.sin(i * 0.35) * amp + rng.normal(0, amp * 0.3)
-        out.append((x + f, y - f * 0.5))
-    return out
+def curve(a, b, rng, bow=0.16):
+    """Verbindung mit seitlichem Bogen — gerade Linien wirken tot."""
+    mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    s = (rng.random() - 0.5) * 2 * bow
+    return bez(a, (mx - dy * s, my + dx * s), b)
 
+
+# ------------------------------------------------------------- Wegenetz ----
+
+def poisson(N, count, margin, rng, ok):
+    """Gut verteilte Punkte auf erlaubtem Grund."""
+    pts, tries = [], 0
+    minr = N / math.sqrt(count) * 0.72
+    while len(pts) < count and tries < count * 400:
+        tries += 1
+        x = rng.random() * (N - 2 * margin) + margin
+        y = rng.random() * (N - 2 * margin) + margin
+        if not ok[int(y), int(x)]:
+            continue
+        if any((x - px) ** 2 + (y - py) ** 2 < minr * minr for px, py in pts):
+            continue
+        pts.append((x, y))
+    return pts
+
+
+def road_web(N, nodes, land, rng, loop_ratio=0.55):
+    """Delaunay -> Spannbaum (alles erreichbar) + Extrakanten (Rundwege).
+
+    Nur der Spannbaum waere wieder ein Baum ohne Schleifen — genau das
+    macht Karten langweilig. Die Extrakanten erzeugen die Rundwege.
+    """
+    P = np.array(nodes)
+    tri = Delaunay(P)
+    edges = set()
+    for s in tri.simplices:
+        for a, b in ((s[0], s[1]), (s[1], s[2]), (s[2], s[0])):
+            edges.add((min(a, b), max(a, b)))
+
+    def crosses_water(a, b):
+        for t in np.linspace(0, 1, 24):
+            x = int(P[a][0] + (P[b][0] - P[a][0]) * t)
+            y = int(P[a][1] + (P[b][1] - P[a][1]) * t)
+            if not (0 <= x < N and 0 <= y < N) or not land[y, x]:
+                return True
+        return False
+
+    usable = [(a, b) for a, b in edges if not crosses_water(a, b)]
+    n = len(P)
+    W = np.zeros((n, n))
+    for a, b in usable:
+        W[a, b] = W[b, a] = math.dist(P[a], P[b])
+    mst = minimum_spanning_tree(W).toarray()
+    keep = {(min(a, b), max(a, b))
+            for a, b in zip(*np.nonzero(mst))}
+
+    rest = sorted([e for e in usable if e not in keep],
+                  key=lambda e: math.dist(P[e[0]], P[e[1]]))
+    keep.update(rest[:int(len(rest) * loop_ratio)])
+
+    return [curve(tuple(P[a]), tuple(P[b]), rng) for a, b in keep], keep
+
+
+# ---------------------------------------------------------- Monsterlager ----
+
+def place_camps(N, terr, road_d, rng, core, n_max=26):
+    """Lager in die Taschen zwischen den Wegen setzen.
+
+    Greedy groesster freier Kreis: immer dort, wo gerade am meisten Platz
+    ist. Im Kerngebiet duerfen die Lager dichter stehen — so entsteht ein
+    Jagdgebiet mit hoher Dichte und ruhigere Randzonen, statt gleichmaessig
+    verteilter Langeweile.
+    """
+    free = (terr == GRASS) & (road_d > 3.0)
+    d = distance_transform_edt(free).astype(np.float32)
+    yy, xx = np.mgrid[0:N, 0:N]
+    camps = []
+    while len(camps) < n_max:
+        idx = int(np.argmax(d))
+        y, x = divmod(idx, N)
+        space = float(d[y, x])
+        if space < 4.5:
+            break
+        # Groesse streuen: 26 gleich grosse Kreise wirken wie Schablone.
+        # Grosse Lager = Gruppen-Pull, kleine = einzelne Nester.
+        r = min(space * 0.66, 8.5) * (0.62 + rng.random() * 0.55)
+        inner = core[y, x]
+        camps.append({"x": int(x), "y": int(y), "r": round(r, 1),
+                      "tier": "kern" if inner else "rand"})
+        clear = r * (1.9 if inner else 3.1)   # im Kern duerfen sie dichter
+        d[(xx - x) ** 2 + (yy - y) ** 2 < clear * clear] = 0
+    return camps
+
+
+# ----------------------------------------------------------------- Bau ----
 
 def compose(N, rng):
-    """Baut das Terrainraster. Alles hier ist Absicht, nichts ist gestreut."""
     terr = np.full((N, N), GRASS, dtype=np.int8)
     plan = {}
+    yy, xx = np.mgrid[0:N, 0:N].astype(np.float32)
 
     def road(pts, half, surface, shoulder=None):
-        """Weg mit konstanter Breite; optional ein Saum aus Erde daneben."""
         d = dist_to_path(N, pts)
         if shoulder is not None:
             lay(terr, d <= half + shoulder, DIRT)
         lay(terr, d <= half, surface)
         return d
 
-    # --- Hochland-Plateau im Nordwesten ------------------------------------
-    hx, hy, hr = N * 0.20, N * 0.18, N * 0.23
-    plateau = blob_field(N, hx, hy, hr, rng, rough=0.26)
-    lay(terr, plateau < 0, ROCK)
-    plan["plateau"] = (hx, hy, hr)
+    # --- Bergrahmen: begrenzt das Spielfeld, wie im Vorbild ----------------
+    edge_d = np.minimum.reduce([xx, yy, N - 1 - xx, N - 1 - yy])
+    band = N * 0.030 * (1.0 + 1.0 * fbm2(N, rng, 4, 3))
+    lay(terr, edge_d < band, ROCK)
+    plan["frame"] = band
 
-    # Grasinseln auf dem Plateau: eine einfarbige Felsflaeche ist tot
-    for _ in range(7):
-        a, d = rng.random() * 2 * math.pi, hr * rng.random() * 0.8
-        gx, gy = hx + math.cos(a) * d, hy + math.sin(a) * d
-        patch = blob_field(N, gx, gy, hr * (0.10 + rng.random() * 0.13), rng, 0.4)
-        lay(terr, (patch < 0) & (plateau < 0), GRASS)
+    # --- Fluss von Nord nach Sued, Meer im Suedosten -----------------------
+    river = [(N * 0.62 + math.sin(t * 3.1) * N * 0.05, t * N)
+             for t in np.linspace(-0.05, 1.05, 26)]
+    dr = dist_to_path(N, river)
+    lay(terr, dr <= 4.8, SAND)
+    lay(terr, dr <= 2.4, WATER)
+    plan["river"] = river
 
-    # Der Pass: die einzige Rampe aufs Plateau — Engstelle mit Absicht
-    pass_pts = wobble(bez((hx + hr * 0.34, hy + hr * 0.70),
-                          (hx + hr * 0.60, hy + hr * 0.98),
-                          (hx + hr * 0.66, hy + hr * 1.45)), rng, 1.0)
-    lay(terr, dist_to_path(N, pass_pts) <= 3.4, GRASS)
-    plan["pass"] = pass_pts
+    sea = blob_field(N, N * 1.95, N * 1.85, N * 1.60, rng, rough=0.05, cells=2)
+    lay(terr, sea < 7.0, SAND)
+    lay(terr, sea < 0, WATER)
 
-    # --- Arena in einer Felssenke oestlich des Flusses ---------------------
-    ax, ay, ar = N * 0.79, N * 0.30, N * 0.105
-    bowl = blob_field(N, ax, ay, ar * 1.65, rng, rough=0.16)
-    lay(terr, bowl < 0, ROCK)
-    lay(terr, blob_field(N, ax, ay, ar, rng, rough=0.12) < 0, ARENA)
-    lanes = [i * math.pi / 2 + 0.42 for i in range(4)]
-    for la in lanes:                          # vier Schneisen durch den Wall
-        p0 = (ax + math.cos(la) * ar * 0.6, ay + math.sin(la) * ar * 0.6)
-        p1 = (ax + math.cos(la) * ar * 2.0, ay + math.sin(la) * ar * 2.0)
-        lay(terr, dist_to_path(N, [p0, p1]) <= 2.4, ARENA)
-    plan["arena"] = (ax, ay, ar, lanes)
+    land = ~np.isin(terr, (WATER, ROCK))
 
-    # --- Aecker westlich der Stadt, leicht unregelmaessig ------------------
+    # --- Wegenetz ----------------------------------------------------------
+    # Wenige Knoten + duenne Wege: das Verhaeltnis entscheidet. Mit 34 Knoten
+    # und 4,8 Tiles Breite verschmilzt das Netz zu einer einzigen braunen
+    # Flaeche — die Taschen muessen deutlich groesser sein als der Weg breit.
+    nodes = poisson(N, 22, N * 0.10, rng, land)
+    paths, edges = road_web(N, nodes, land, rng, loop_ratio=0.38)
+    segs = [s for p in paths for s in path_segs(p)]
+    road_d = dist_to_segments(N, segs)
+    lay(terr, (road_d <= 1.3) & land, DIRT)
+    plan["nodes"], plan["paths"] = nodes, paths
+
+    # --- Furten ueber den Fluss: die einzigen Uebergaenge ------------------
+    bridges = [(N * 0.62 + math.sin(t * 3.1) * N * 0.05, t * N)
+               for t in (0.28, 0.66)]
+    for (bx, by) in bridges:
+        lay(terr, dist_to_path(N, [(bx - 9, by), (bx + 9, by)]) <= 2.2, DIRT)
+    plan["bridges"] = bridges
+
+    # --- Hauptstrasse: eine gepflasterte Route quer durch die Zone ---------
+    P = np.array(nodes)
+    west = int(np.argmin(P[:, 0] + abs(P[:, 1] - N * 0.55) * 0.4))
+    town_node = int(np.argmin(np.hypot(P[:, 0] - (bridges[1][0] - N * 0.14),
+                                       P[:, 1] - bridges[1][1])))
+    main = curve(tuple(P[west]), tuple(P[town_node]), rng, bow=0.10)
+    road(main, 2.1, COBBLE)
+    road(curve(tuple(P[town_node]), bridges[1], rng, bow=0.05), 2.1, COBBLE)
+    tx, ty = P[town_node]
+    plan["town"], plan["main"] = (tx, ty), main
+
+    # --- Stadt: Querstrassen + kleiner Marktplatz --------------------------
+    cross = []
+    for off, ln in ((-N * 0.075, N * 0.065), (N * 0.070, N * 0.060)):
+        c = curve((tx + off, ty - ln), (tx + off * 0.9, ty + ln), rng, bow=0.06)
+        road(c, 1.5, COBBLE)
+        cross.append(c)
+    sq = N * 0.024
+    terr[int(ty - sq):int(ty + sq),
+         int(tx - sq * 1.4):int(tx + sq * 1.4)] = COBBLE
+    plan["cross"], plan["square"] = cross, (tx, ty, sq)
+
+    # --- Aecker in einer Tasche neben der Stadt ----------------------------
     fields = []
-    fx0, fy0 = N * 0.14, N * 0.60
+    fx0, fy0 = tx - N * 0.26, ty + N * 0.09
     for r_ in range(2):
-        for c_ in range(3):
-            w = int(N * (0.070 + rng.random() * 0.020))
-            h = int(N * (0.058 + rng.random() * 0.018))
-            x0 = int(fx0 + c_ * N * 0.098 + rng.integers(-3, 4))
-            y0 = int(fy0 + r_ * N * 0.088 + rng.integers(-3, 4))
-            if x0 < 1 or y0 < 1 or x0 + w > N - 1 or y0 + h > N - 1:
+        for c_ in range(2):
+            w = int(N * (0.062 + rng.random() * 0.018))
+            h = int(N * (0.052 + rng.random() * 0.016))
+            x0 = int(fx0 + c_ * N * 0.085 + rng.integers(-2, 3))
+            y0 = int(fy0 + r_ * N * 0.078 + rng.integers(-2, 3))
+            if x0 < 2 or y0 < 2 or x0 + w > N - 2 or y0 + h > N - 2:
+                continue
+            if np.any(np.isin(terr[y0:y0 + h, x0:x0 + w], (WATER, ROCK, COBBLE))):
                 continue
             terr[y0:y0 + h, x0:x0 + w] = FARM
             fields.append((x0, y0, w, h))
     plan["fields"] = fields
 
-    # --- Strassennetz ------------------------------------------------------
-    tx, ty = N * 0.42, N * 0.60          # Stadt am Westufer der Furt
-    bridges = [(N * 0.615, N * 0.26), (N * 0.585, N * 0.62)]
-    plan["town"], plan["bridges"] = (tx, ty), bridges
-
-    # Genau der Punkt, an dem die Fernstrasse zur Hauptstrasse wird. Enden
-    # sie versetzt, laufen beide ein Stueck parallel und die Stadteinfahrt
-    # wird doppelt so breit wie gewollt.
-    gate = (tx - N * 0.13, ty + N * 0.02)
-
-    roads = []
-    # Fernstrasse: Westrand -> an den Aeckern vorbei -> Stadttor
-    roads.append((wobble(bez((-3, ty + N * 0.13), (N * 0.22, ty + N * 0.10),
-                             gate), rng, 1.2), 2.4, True))
-    # ueber die Furt nach Osten zur Arena
-    east = wobble(bez((bridges[1][0], bridges[1][1]),
-                      (bridges[1][0] + N * 0.13, bridges[1][1] - N * 0.10),
-                      (ax - ar * 1.9, ay + ar * 1.4)), rng, 1.6)
-    roads.append((east, 2.6, True))
-    # Gabelung nach Sueden an die Kueste
-    mid = east[len(east) // 2]
-    roads.append((wobble(bez(mid, (N * 0.88, N * 0.66), (N * 0.66, N * 0.86)),
-                         rng, 1.8), 2.0, False))
-    # Stadt -> Nordfurt
-    roads.append((wobble(bez((tx + N * 0.02, ty - N * 0.07),
-                             (N * 0.50, N * 0.38), bridges[0]), rng, 1.4),
-                  2.2, False))
-    # Stadt -> Pass hinauf aufs Plateau
-    roads.append((wobble(bez((tx - N * 0.03, ty - N * 0.08),
-                             (N * 0.30, N * 0.42),
-                             pass_pts[len(pass_pts) // 2]), rng, 1.2), 2.0, False))
-    for pts, half, paved in roads:
-        road(pts, half, COBBLE if paved else DIRT,
-             shoulder=1.3 if paved else None)
-    plan["roads"] = roads
-
-    # --- Stadt: Hauptstrasse, zwei Querstrassen, Marktplatz ----------------
-    # Strassen OHNE Saum und weit auseinander: mit Saum und eng gesetzt
-    # verschmelzen Hauptstrasse, Querstrassen und Platz zu einer einzigen
-    # Pflasterflaeche — dann gibt es keine Strassen mehr, nur noch Belag.
-    main_st = wobble(bez(gate, (tx, ty),
-                         (bridges[1][0], bridges[1][1])), rng, 0.8)
-    road(main_st, 2.0, COBBLE)
-    cross = []
-    for off, ln in ((-N * 0.090, N * 0.075), (N * 0.080, N * 0.070)):
-        c = wobble(bez((tx + off, ty - ln), (tx + off * 1.10, ty),
-                       (tx + off * 0.85, ty + ln)), rng, 0.6)
-        road(c, 1.5, COBBLE)
-        cross.append(c)
-    sq = N * 0.026                       # kleiner Marktplatz an der Kreuzung
-    terr[int(ty - sq):int(ty + sq),
-         int(tx - sq * 1.4):int(tx + sq * 1.4)] = COBBLE
-    plan["main_st"], plan["cross"], plan["square"] = main_st, cross, (tx, ty, sq)
-
-    # --- Fluss: Sandufer, dann Wasser --------------------------------------
-    river = wobble(bez((N * 0.66, -3), (N * 0.70, N * 0.42),
-                       (N * 0.60, N * 0.95)), rng, 2.2)
-    dr = dist_to_path(N, river)
-    lay(terr, dr <= 5.2, SAND)
-    lay(terr, dr <= 2.6, WATER)
-    plan["river"] = river
-
-    # --- Meer im Suedosten mit Strandsaum ----------------------------------
-    # Mittelpunkt weit ausserhalb + grosser Radius: so schneidet die Kueste
-    # nur die Suedost-Ecke ab. Ein naeherer Mittelpunkt flutet die halbe Zone.
-    sea = blob_field(N, N * 1.90, N * 1.90, N * 1.62, rng, rough=0.05, cells=2)
-    lay(terr, sea < 7.5, SAND)
-    lay(terr, sea < 0, WATER)
-    plan["coast"] = sea
-
-    # --- Furten: begehbarer Steg ueber den Fluss ---------------------------
-    for (bx, by) in bridges:
-        lay(terr, dist_to_path(N, [(bx - 8, by), (bx + 8, by)]) <= 2.2, DIRT)
+    # --- Arena im Felskessel, oestlich des Flusses -------------------------
+    ax, ay, ar = N * 0.83, N * 0.30, N * 0.085
+    lay(terr, blob_field(N, ax, ay, ar * 1.6, rng, rough=0.16) < 0, ROCK)
+    lay(terr, blob_field(N, ax, ay, ar, rng, rough=0.12) < 0, ARENA)
+    lanes = [i * math.pi / 2 + 0.42 for i in range(4)]
+    for la in lanes:
+        p0 = (ax + math.cos(la) * ar * 0.6, ay + math.sin(la) * ar * 0.6)
+        p1 = (ax + math.cos(la) * ar * 2.1, ay + math.sin(la) * ar * 2.1)
+        lay(terr, dist_to_path(N, [p0, p1]) <= 2.3, ARENA)
+    plan["arena"] = (ax, ay, ar, lanes)
 
     # --- Wiese aufbrechen --------------------------------------------------
-    # Ohne das sind ueber 50 % der Zone dieselbe gruene Flaeche — der
-    # groesste Langeweile-Treiber. Also Felsnasen, Tuempel und ausgetretene
-    # Lichtungen streuen, aber nur dort, wo nichts Gebautes liegt.
     def open_meadow(px, py, r):
         y0, y1 = max(0, int(py - r * 2)), min(N, int(py + r * 2))
         x0, x1 = max(0, int(px - r * 2)), min(N, int(px + r * 2))
         return np.all(np.isin(terr[y0:y1, x0:x1], (GRASS, ROCK)))
 
-    outcrops = []
-    for _ in range(90):
-        if len(outcrops) >= 9:
-            break
+    for _ in range(80):
         px, py = rng.random() * N, rng.random() * N
-        r = N * (0.016 + rng.random() * 0.026)
+        r = N * (0.014 + rng.random() * 0.022)
         if terr[int(py), int(px)] != GRASS or not open_meadow(px, py, r):
             continue
         lay(terr, blob_field(N, px, py, r, rng, rough=0.5) < 0, ROCK)
-        outcrops.append((px, py, r))
 
     ponds = []
     for _ in range(60):
         if len(ponds) >= 3:
             break
         px, py = rng.random() * N, rng.random() * N
-        r = N * (0.018 + rng.random() * 0.018)
-        if terr[int(py), int(px)] != GRASS or not open_meadow(px, py, r * 1.6):
+        r = N * (0.016 + rng.random() * 0.016)
+        if terr[int(py), int(px)] != GRASS or not open_meadow(px, py, r * 1.7):
             continue
         f = blob_field(N, px, py, r, rng, rough=0.35)
         lay(terr, f < 3.0, SAND)
         lay(terr, f < 0, WATER)
         ponds.append((px, py, r))
+    plan["ponds"] = ponds
 
-    for _ in range(60):
-        px, py = rng.random() * N, rng.random() * N
-        r = N * (0.012 + rng.random() * 0.020)
-        if terr[int(py), int(px)] != GRASS or not open_meadow(px, py, r):
-            continue
-        lay(terr, blob_field(N, px, py, r, rng, rough=0.6) < 0, DIRT)
+    # --- Monsterlager in die Taschen ---------------------------------------
+    # Kerngebiet = dichtes Jagdgebiet, wie der gruene Cluster im Vorbild
+    core_c = (N * 0.34, N * 0.42)
+    core = np.hypot(xx - core_c[0], yy - core_c[1]) < N * 0.30
+    camps = place_camps(N, terr, road_d, rng, core)
+    for c in camps:
+        f = blob_field(N, c["x"], c["y"], c["r"], rng, rough=0.30)
+        lay(terr, (f < 1.5) & (terr == GRASS), DIRT)
+        lay(terr, (f < 0) & np.isin(terr, (GRASS, DIRT)), ARENA)
+    plan["camps"], plan["core"] = camps, core_c
 
-    plan["outcrops"], plan["ponds"] = outcrops, ponds
     return terr, plan
 
 
 def build_ground(terr, ids, rng, N):
-    """Wang-Aufloesung. Reihenfolge = Vorrang beim Uebergang."""
     order = [("water", WATER), ("cobble", COBBLE), ("arena", ARENA),
              ("farm", FARM), ("rock", ROCK), ("sand", SAND), ("dirt", DIRT)]
     cs = {name: combos(terr == code) for name, code in order}
@@ -304,8 +362,8 @@ def build_ground(terr, ids, rng, N):
                     pool = full[name]
                     g[y, x] = ids[pool[int(rng.integers(len(pool)))]]
                 else:
-                    g[y, x] = ids[f"{name}_grass_{c}"] if name != "water" \
-                        else ids[f"water_grass_{c}"]
+                    g[y, x] = (ids[f"water_grass_{c}"] if name == "water"
+                               else ids[f"{name}_grass_{c}"])
                 break
             else:
                 g[y, x] = (flower_pool[int(rng.integers(3))]
@@ -327,23 +385,22 @@ def main():
     meta = load_meta(a.tileset)
     ids, sprites = meta["ids"], meta["sprites"]
 
-    print(f"[1/4] Terrain komponieren ({N}x{N}) ...")
+    print(f"[1/4] Terrain und Wegenetz komponieren ({N}x{N}) ...")
     terr, plan = compose(N, rng)
 
     print("[2/4] Boden aufloesen ...")
     ground = build_ground(terr, ids, rng, N)
 
-    print("[3/4] Bebauung und Deko ...")
+    print("[3/4] Bebauung, Lager und Deko ...")
     deco = np.zeros((N, N), dtype=int)
     over = np.zeros((N, N), dtype=int)
-    block = terr == WATER
+    block = np.isin(terr, (WATER, ROCK))
 
     def free(x, y, w=1, h=1, pad=0):
         if x - pad < 0 or y - pad < 0 or x + w + pad > N or y + h + pad > N:
             return False
         area = terr[y - pad:y + h + pad, x - pad:x + w + pad]
-        if np.any(area == WATER) or np.any(area == COBBLE) \
-                or np.any(area == FARM):
+        if np.any(np.isin(area, (WATER, COBBLE, FARM, ROCK, ARENA))):
             return False
         return not np.any(over[y - pad:y + h + pad, x - pad:x + w + pad])
 
@@ -357,34 +414,28 @@ def main():
             if s["h"] > 1:
                 block[y + s["h"] - 2, x:x + s["w"]] = True
 
-    # Haeuser saeumen die Strassen und schauen zur Strasse — kein Ring
     house_names = ["house_a", "house_b", "house_c"]
     n_h = 0
-    streets = [plan["main_st"]] + plan["cross"]
-    for pts in streets:
-        for i in range(2, len(pts) - 2, 3):
-            (ax_, ay_), (bx_, by_) = pts[i - 1], pts[i + 1]
+    tx, ty, _sq = plan["square"]
+    for pts in [plan["main"]] + plan["cross"]:
+        dense = [p for p in pts if math.dist(p, (tx, ty)) < N * 0.12]
+        for i in range(1, len(dense) - 1):
+            (ax_, ay_), (bx_, by_) = dense[i - 1], dense[i + 1]
             dx, dy = bx_ - ax_, by_ - ay_
             n = math.hypot(dx, dy) or 1.0
             nx, ny = -dy / n, dx / n
             for side in (1, -1):
                 name = house_names[int(rng.integers(3))]
                 s = sprites[name]
-                # dicht an die Strasse ruecken — Haeuser, die 8 Felder weit
-                # in der Wiese stehen, definieren keine Strasse
                 off = 4.2 + s["h"] / 2 + rng.random()
-                hx = int(pts[i][0] + nx * off * side - s["w"] / 2)
-                hy = int(pts[i][1] + ny * off * side - s["h"] / 2)
+                hx = int(dense[i][0] + nx * off * side - s["w"] / 2)
+                hy = int(dense[i][1] + ny * off * side - s["h"] / 2)
                 if free(hx, hy, s["w"], s["h"]):
                     put(name, hx, hy)
                     n_h += 1
-    sx, sy, sq = plan["square"]
-    if free(int(sx) - 1, int(sy) - 1, 2, 2):
-        put("well", int(sx) - 1, int(sy) - 1)
+    if free(int(tx) - 1, int(ty) - 1, 2, 2):
+        put("well", int(tx) - 1, int(ty) - 1)
 
-    # Zaeune um die Aecker, Setzlinge drauf
-    # Nur dort, wo wirklich noch Acker liegt: Strassen und Fluss werden nach
-    # den Feldern gezogen, sonst stehen Zaeune mitten auf dem Pflaster.
     for (x0, y0, w, h) in plan["fields"]:
         for x in range(x0, x0 + w):
             for y in (y0, y0 + h - 1):
@@ -401,47 +452,54 @@ def main():
                 if terr[y, x] == FARM and rng.random() < 0.55:
                     deco[y, x] = ids["crops"]
 
-    # Bruecken-Planken
     for (bx, by) in plan["bridges"]:
-        for dx in range(-7, 8):
+        for dx in range(-9, 10):
             for dy in (-1, 0, 1):
                 x, y = int(bx + dx), int(by + dy)
                 if 0 <= x < N and 0 <= y < N:
                     deco[y, x] = ids["bridge_h"]
                     block[y, x] = False
 
-    # Arena: Kampfspuren, Felsen am Wall
+    # Monsterlager ausstatten: Feuerstelle, Knochen, Zelte, Felsen am Rand
+    camp_props = [ids["bones"], ids["bones"], ids["skull"], ids["campfire"]]
+    for c in plan["camps"]:
+        cx_, cy_, r = c["x"], c["y"], c["r"]
+        if 0 <= cy_ < N and 0 <= cx_ < N and not deco[cy_, cx_]:
+            deco[cy_, cx_] = ids["campfire"]
+        for _ in range(int(r * r * 0.55)):
+            t = rng.random() * 2 * math.pi
+            d = r * math.sqrt(rng.random()) * 0.9
+            x, y = int(cx_ + math.cos(t) * d), int(cy_ + math.sin(t) * d)
+            if 0 <= x < N and 0 <= y < N and terr[y, x] == ARENA \
+                    and not over[y, x] and not deco[y, x]:
+                deco[y, x] = camp_props[int(rng.integers(len(camp_props)))]
+        if c["tier"] == "kern":
+            for k in range(2):
+                t = 1.1 + k * 2.4
+                x = int(cx_ + math.cos(t) * r * 0.55)
+                y = int(cy_ + math.sin(t) * r * 0.55)
+                if 0 <= x < N - 1 and 0 <= y < N - 1 and terr[y, x] == ARENA \
+                        and not over[y, x]:
+                    put("tent", x, y)
+        n_ring = max(8, int(r * 1.5))
+        for k in range(n_ring):
+            t = k * 2 * math.pi / n_ring
+            x, y = int(cx_ + math.cos(t) * r * 1.15), int(cy_ + math.sin(t) * r * 1.15)
+            if 0 <= x < N and 0 <= y < N and terr[y, x] == GRASS \
+                    and not over[y, x] and not deco[y, x] and rng.random() < 0.55:
+                deco[y, x] = ids["boulder"]
+                block[y, x] = True
+
     ax, ay, ar, lanes = plan["arena"]
-    arena_props = [ids["bones"], ids["bones"], ids["skull"], ids["campfire"],
-                   ids["boulder"], ids["tall_grass"]]
     for _ in range(int(math.pi * ar * ar * 0.08)):
         t = rng.random() * 2 * math.pi
         d = ar * math.sqrt(rng.random()) * 0.9
         x, y = int(ax + math.cos(t) * d), int(ay + math.sin(t) * d)
         if 0 <= x < N and 0 <= y < N and terr[y, x] == ARENA and not deco[y, x]:
-            p = arena_props[int(rng.integers(len(arena_props)))]
-            deco[y, x] = p
-            if p == ids["boulder"]:
-                block[y, x] = True
-    for k in range(3):
-        t = lanes[0] + 0.9 + k * 2.0
-        x, y = int(ax + math.cos(t) * ar * 0.55), int(ay + math.sin(t) * ar * 0.55)
-        if free(x, y, 2, 2) and terr[y, x] == ARENA:
-            put("tent", x, y)
+            deco[y, x] = camp_props[int(rng.integers(len(camp_props)))]
 
-    # Ruine oben auf dem Plateau als Blickfang
-    hx, hy, hr = plan["plateau"]
-    for k in range(9):
-        t = k * 2 * math.pi / 9
-        x, y = int(hx + math.cos(t) * hr * 0.26), int(hy + math.sin(t) * hr * 0.26)
-        if 0 <= x < N and 0 <= y < N and terr[y, x] == ROCK and not deco[y, x]:
-            deco[y, x] = ids["boulder"]
-            block[y, x] = True
-
-    # Deko in Nestern, nicht gleichmaessig gestreut: gleichmaessige Streuung
-    # sieht aus wie Rauschen und laesst die Flaeche trotzdem leer wirken.
-    nests = [(ids["tall_grass"], 26, 7.0), (ids["mushrooms"], 10, 3.5),
-             (ids["boulder"], 12, 4.5), (ids["log"], 8, 3.0)]
+    nests = [(ids["tall_grass"], 30, 7.0), (ids["mushrooms"], 12, 3.5),
+             (ids["boulder"], 14, 4.5), (ids["log"], 9, 3.0)]
     for tile, n_nest, spread in nests:
         for _ in range(n_nest):
             cx_, cy_ = rng.random() * N, rng.random() * N
@@ -473,6 +531,8 @@ def main():
             "infinite": False, "width": N, "height": N,
             "tilewidth": meta["tile_size"], "tileheight": meta["tile_size"],
             "nextlayerid": 5, "nextobjectid": 1,
+            "properties": [{"name": "monster_camps", "type": "string",
+                            "value": json.dumps(plan["camps"])}],
             "tilesets": [{"firstgid": 1, "name": "painted", "image": ts_rel,
                           "imagewidth": meta["imagewidth"],
                           "imageheight": meta["imageheight"],
@@ -489,12 +549,12 @@ def main():
         json.dump(tmap, f)
 
     names = {"Wasser": WATER, "Wiese": GRASS, "Weg": DIRT, "Pflaster": COBBLE,
-             "Arena": ARENA, "Sand": SAND, "Fels": ROCK, "Acker": FARM}
-    share = "  ".join(f"{k} {(terr == v).mean() * 100:.0f}%"
-                      for k, v in names.items())
-    print(f"  {share}")
-    print(f"  {n_h} Haeuser, {len(plan['fields'])} Aecker, "
-          f"{len(plan['bridges'])} Bruecken, blockiert {block.mean() * 100:.0f}%")
+             "Lager": ARENA, "Sand": SAND, "Fels": ROCK, "Acker": FARM}
+    print("  " + "  ".join(f"{k} {(terr == v).mean() * 100:.0f}%"
+                           for k, v in names.items()))
+    kern = sum(1 for c in plan["camps"] if c["tier"] == "kern")
+    print(f"  {len(plan['paths'])} Wegstuecke, {len(plan['camps'])} Lager "
+          f"({kern} im Kerngebiet), {n_h} Haeuser, blockiert {block.mean()*100:.0f}%")
     px = N * meta["tile_size"]
     print(f"Fertig -> {a.out}  ({N}x{N} Tiles = {px}x{px} px)")
 
