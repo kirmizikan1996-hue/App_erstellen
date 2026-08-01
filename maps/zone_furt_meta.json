@@ -1,0 +1,635 @@
+{
+  "name": "zone_furt",
+  "width_tiles": 256,
+  "height_tiles": 256,
+  "tile_size": 32,
+  "camps": [
+    {
+      "x": 127,
+      "y": 58,
+      "r": 7.6,
+      "tier": "rand",
+      "type": "spinnen"
+    },
+    {
+      "x": 26,
+      "y": 214,
+      "r": 11.4,
+      "tier": "kern",
+      "type": "spinnen"
+    },
+    {
+      "x": 53,
+      "y": 61,
+      "r": 10.9,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 92,
+      "y": 85,
+      "r": 7.3,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 42,
+      "y": 114,
+      "r": 11.1,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 120,
+      "y": 106,
+      "r": 10.2,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 25,
+      "y": 83,
+      "r": 6.7,
+      "tier": "rand",
+      "type": "spinnen"
+    },
+    {
+      "x": 122,
+      "y": 180,
+      "r": 5.9,
+      "tier": "rand",
+      "type": "banditen"
+    },
+    {
+      "x": 45,
+      "y": 180,
+      "r": 7.2,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 86,
+      "y": 230,
+      "r": 6.8,
+      "tier": "rand",
+      "type": "untote"
+    },
+    {
+      "x": 45,
+      "y": 205,
+      "r": 6.7,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 74,
+      "y": 120,
+      "r": 5.4,
+      "tier": "kern",
+      "type": "spinnen"
+    },
+    {
+      "x": 23,
+      "y": 38,
+      "r": 8.2,
+      "tier": "rand",
+      "type": "bestien"
+    },
+    {
+      "x": 218,
+      "y": 124,
+      "r": 4.6,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 230,
+      "y": 22,
+      "r": 6.5,
+      "tier": "rand",
+      "type": "ruine"
+    },
+    {
+      "x": 110,
+      "y": 193,
+      "r": 6.0,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 61,
+      "y": 22,
+      "r": 6.2,
+      "tier": "rand",
+      "type": "banditen"
+    },
+    {
+      "x": 47,
+      "y": 193,
+      "r": 6.9,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 20,
+      "y": 194,
+      "r": 6.5,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 65,
+      "y": 232,
+      "r": 6.4,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 175,
+      "y": 18,
+      "r": 6.8,
+      "tier": "rand",
+      "type": "banditen"
+    },
+    {
+      "x": 86,
+      "y": 36,
+      "r": 4.0,
+      "tier": "rand",
+      "type": "banditen"
+    },
+    {
+      "x": 82,
+      "y": 93,
+      "r": 4.6,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 107,
+      "y": 204,
+      "r": 3.9,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 97,
+      "y": 73,
+      "r": 6.3,
+      "tier": "kern",
+      "type": "untote"
+    },
+    {
+      "x": 184,
+      "y": 108,
+      "r": 5.3,
+      "tier": "rand",
+      "type": "bestien"
+    },
+    {
+      "x": 81,
+      "y": 165,
+      "r": 5.2,
+      "tier": "kern",
+      "type": "spinnen"
+    },
+    {
+      "x": 198,
+      "y": 18,
+      "r": 6.2,
+      "tier": "rand",
+      "type": "bestien"
+    },
+    {
+      "x": 19,
+      "y": 182,
+      "r": 4.3,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 20,
+      "y": 62,
+      "r": 6.0,
+      "tier": "rand",
+      "type": "ruine"
+    },
+    {
+      "x": 210,
+      "y": 120,
+      "r": 3.4,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 99,
+      "y": 125,
+      "r": 4.0,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 184,
+      "y": 145,
+      "r": 5.0,
+      "tier": "kern",
+      "type": "spinnen"
+    },
+    {
+      "x": 18,
+      "y": 159,
+      "r": 5.1,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 18,
+      "y": 168,
+      "r": 4.6,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 57,
+      "y": 175,
+      "r": 4.0,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 106,
+      "y": 211,
+      "r": 5.5,
+      "tier": "rand",
+      "type": "ruine"
+    },
+    {
+      "x": 53,
+      "y": 234,
+      "r": 4.1,
+      "tier": "kern",
+      "type": "spinnen"
+    },
+    {
+      "x": 121,
+      "y": 235,
+      "r": 5.3,
+      "tier": "rand",
+      "type": "banditen"
+    },
+    {
+      "x": 47,
+      "y": 42,
+      "r": 5.3,
+      "tier": "rand",
+      "type": "ruine"
+    },
+    {
+      "x": 140,
+      "y": 88,
+      "r": 5.0,
+      "tier": "rand",
+      "type": "bestien"
+    },
+    {
+      "x": 22,
+      "y": 234,
+      "r": 4.1,
+      "tier": "rand",
+      "type": "untote"
+    },
+    {
+      "x": 109,
+      "y": 32,
+      "r": 4.2,
+      "tier": "rand",
+      "type": "untote"
+    },
+    {
+      "x": 158,
+      "y": 101,
+      "r": 5.6,
+      "tier": "rand",
+      "type": "bestien"
+    },
+    {
+      "x": 157,
+      "y": 182,
+      "r": 4.4,
+      "tier": "rand",
+      "type": "banditen"
+    },
+    {
+      "x": 105,
+      "y": 82,
+      "r": 3.6,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 38,
+      "y": 155,
+      "r": 5.4,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 74,
+      "y": 35,
+      "r": 3.5,
+      "tier": "rand",
+      "type": "spinnen"
+    },
+    {
+      "x": 238,
+      "y": 42,
+      "r": 5.4,
+      "tier": "rand",
+      "type": "ruine"
+    },
+    {
+      "x": 82,
+      "y": 57,
+      "r": 4.4,
+      "tier": "kern",
+      "type": "spinnen"
+    },
+    {
+      "x": 17,
+      "y": 101,
+      "r": 4.1,
+      "tier": "rand",
+      "type": "spinnen"
+    },
+    {
+      "x": 224,
+      "y": 118,
+      "r": 3.2,
+      "tier": "kern",
+      "type": "spinnen"
+    },
+    {
+      "x": 210,
+      "y": 126,
+      "r": 5.0,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 17,
+      "y": 149,
+      "r": 5.2,
+      "tier": "rand",
+      "type": "bestien"
+    },
+    {
+      "x": 182,
+      "y": 154,
+      "r": 5.2,
+      "tier": "kern",
+      "type": "spinnen"
+    },
+    {
+      "x": 101,
+      "y": 175,
+      "r": 5.3,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 105,
+      "y": 236,
+      "r": 3.8,
+      "tier": "rand",
+      "type": "untote"
+    },
+    {
+      "x": 137,
+      "y": 236,
+      "r": 4.5,
+      "tier": "rand",
+      "type": "ruine"
+    },
+    {
+      "x": 183,
+      "y": 124,
+      "r": 5.2,
+      "tier": "kern",
+      "type": "spinnen"
+    },
+    {
+      "x": 66,
+      "y": 126,
+      "r": 3.4,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 115,
+      "y": 146,
+      "r": 3.6,
+      "tier": "rand",
+      "type": "banditen"
+    },
+    {
+      "x": 180,
+      "y": 183,
+      "r": 3.3,
+      "tier": "kern",
+      "type": "untote"
+    },
+    {
+      "x": 160,
+      "y": 138,
+      "r": 4.8,
+      "tier": "kern",
+      "type": "untote"
+    },
+    {
+      "x": 46,
+      "y": 236,
+      "r": 3.0,
+      "tier": "rand",
+      "type": "spinnen"
+    },
+    {
+      "x": 48,
+      "y": 95,
+      "r": 3.1,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 203,
+      "y": 154,
+      "r": 5.0,
+      "tier": "kern",
+      "type": "untote"
+    },
+    {
+      "x": 200,
+      "y": 172,
+      "r": 4.1,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 156,
+      "y": 195,
+      "r": 4.4,
+      "tier": "rand",
+      "type": "spinnen"
+    },
+    {
+      "x": 82,
+      "y": 114,
+      "r": 4.0,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 135,
+      "y": 126,
+      "r": 3.0,
+      "tier": "rand",
+      "type": "untote"
+    },
+    {
+      "x": 125,
+      "y": 16,
+      "r": 3.8,
+      "tier": "rand",
+      "type": "banditen"
+    },
+    {
+      "x": 136,
+      "y": 16,
+      "r": 4.6,
+      "tier": "rand",
+      "type": "bestien"
+    },
+    {
+      "x": 16,
+      "y": 113,
+      "r": 4.5,
+      "tier": "rand",
+      "type": "bestien"
+    },
+    {
+      "x": 15,
+      "y": 126,
+      "r": 3.8,
+      "tier": "rand",
+      "type": "untote"
+    },
+    {
+      "x": 224,
+      "y": 130,
+      "r": 2.8,
+      "tier": "kern",
+      "type": "spinnen"
+    },
+    {
+      "x": 151,
+      "y": 157,
+      "r": 3.6,
+      "tier": "rand",
+      "type": "ruine"
+    },
+    {
+      "x": 71,
+      "y": 160,
+      "r": 3.9,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 180,
+      "y": 177,
+      "r": 4.4,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 179,
+      "y": 189,
+      "r": 4.1,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 156,
+      "y": 51,
+      "r": 2.5,
+      "tier": "rand",
+      "type": "ruine"
+    },
+    {
+      "x": 152,
+      "y": 120,
+      "r": 4.6,
+      "tier": "rand",
+      "type": "banditen"
+    },
+    {
+      "x": 100,
+      "y": 144,
+      "r": 2.8,
+      "tier": "rand",
+      "type": "banditen"
+    },
+    {
+      "x": 220,
+      "y": 147,
+      "r": 3.6,
+      "tier": "kern",
+      "type": "untote"
+    },
+    {
+      "x": 64,
+      "y": 177,
+      "r": 4.3,
+      "tier": "kern",
+      "type": "untote"
+    }
+  ],
+  "arena": {
+    "x": 212,
+    "y": 76,
+    "r": 21.8,
+    "lane_angles_rad": [
+      0.42,
+      1.991,
+      3.562,
+      5.132
+    ]
+  },
+  "town": {
+    "x": 126,
+    "y": 160
+  },
+  "bridges": [
+    {
+      "x": 168,
+      "y": 71
+    },
+    {
+      "x": 170,
+      "y": 168
+    }
+  ],
+  "cores": [
+    {
+      "x": 76,
+      "y": 87
+    },
+    {
+      "x": 61,
+      "y": 184
+    },
+    {
+      "x": 204,
+      "y": 158
+    }
+  ]
+}

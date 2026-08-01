@@ -24,6 +24,7 @@ import os
 import sys
 
 import numpy as np
+from PIL import Image
 from scipy.ndimage import distance_transform_edt
 from scipy.sparse.csgraph import minimum_spanning_tree
 from scipy.spatial import Delaunay
@@ -589,9 +590,33 @@ def main():
             "layers": [layer("ground", ground, 1, dense=True),
                        layer("decoration", deco, 2), layer("overlay", over, 3),
                        layer("collision", block.astype(int), 4, visible=False)]}
-    os.makedirs(os.path.dirname(os.path.abspath(a.out)) or ".", exist_ok=True)
+    out_dir = os.path.dirname(os.path.abspath(a.out)) or "."
+    os.makedirs(out_dir, exist_ok=True)
     with open(a.out, "w") as f:
         json.dump(tmap, f)
+
+    # --- Beigaben fuer Unity ----------------------------------------------
+    # Der collision-Layer im Tiled-JSON traegt zwar die Info, aber als
+    # Tile-IDs — unbrauchbar ohne Importer. Deshalb zusaetzlich eine
+    # eindeutige Maske und eine flache Metadatei, die JsonUtility direkt
+    # deserialisieren kann (siehe docs/unity_import.md).
+    base = os.path.splitext(os.path.basename(a.out))[0]
+    Image.fromarray((block * 255).astype(np.uint8)).save(
+        os.path.join(out_dir, f"{base}_collision.png"))
+
+    ax_, ay_, ar_, lanes_ = plan["arena"]
+    meta_out = {
+        "name": base,
+        "width_tiles": N, "height_tiles": N, "tile_size": meta["tile_size"],
+        "camps": plan["camps"],
+        "arena": {"x": int(ax_), "y": int(ay_), "r": round(ar_, 1),
+                  "lane_angles_rad": [round(l, 3) for l in lanes_]},
+        "town": {"x": int(plan["square"][0]), "y": int(plan["square"][1])},
+        "bridges": [{"x": int(bx), "y": int(by)} for bx, by in plan["bridges"]],
+        "cores": [{"x": int(cx_), "y": int(cy_)} for cx_, cy_ in plan["cores"]],
+    }
+    with open(os.path.join(out_dir, f"{base}_meta.json"), "w") as f:
+        json.dump(meta_out, f, indent=2)
 
     names = {"Wasser": WATER, "Wiese": GRASS, "Weg": DIRT, "Pflaster": COBBLE,
              "Lager": ARENA, "Sand": SAND, "Fels": ROCK, "Acker": FARM}
