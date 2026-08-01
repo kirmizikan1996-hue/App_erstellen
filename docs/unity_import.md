@@ -46,12 +46,26 @@ Liegt das Tileset woanders, findet der Importer es nicht und die Map bleibt leer
 Window → Package Manager → **+** → *Add package from git URL*:
 
 ```
-https://github.com/Seanba/SuperTiled2Unity.git?path=/SuperTiled2Unity/Assets/SuperTiled2Unity
+https://github.com/Seanba/SuperTiled2Unity.git?path=/SuperTiled2Unity/Packages/com.seanba.super-tiled2unity
 ```
 
-Danach importiert Unity `.json`-Tiled-Maps automatisch. Ein Klick auf die
-Map im Projektfenster zeigt den Import-Inspector; von dort ins Scene-Fenster
-ziehen.
+**Achtung beim Pfad:** Das Paket liegt unter `Packages/com.seanba.super-tiled2unity`,
+nicht unter `Assets/SuperTiled2Unity`. Mit dem falschen `path=` findet Unity
+keine `package.json` und bricht die Auflösung ab.
+
+Alternativ direkt in `Packages/manifest.json` eintragen — der Schlüssel muss
+exakt dem `name` aus der `package.json` entsprechen:
+
+```json
+"com.seanba.super-tiled2unity": "https://github.com/Seanba/SuperTiled2Unity.git?path=/SuperTiled2Unity/Packages/com.seanba.super-tiled2unity"
+```
+
+Voraussetzung: **git muss im PATH liegen**, Unity ruft es zum Auflösen auf.
+
+Der Importer verarbeitet **`.tmx` (XML)**, nicht das JSON-Format von Tiled.
+Deshalb schreibt der Generator beides — für Unity ist `zone_furt.tmx` die
+richtige Datei. Ein Klick darauf im Projektfenster zeigt den Import-Inspector;
+von dort ins Scene-Fenster ziehen.
 
 ---
 
