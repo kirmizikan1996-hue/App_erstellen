@@ -24,7 +24,8 @@ def load_tileset(map_path, ts):
     return tiles
 
 
-def render(map_path, out=None, scale=1, show_collision=False, show_grid=False):
+def render(map_path, out=None, scale=1, show_collision=False, show_grid=False,
+           only=None, transparent=False):
     m = json.load(open(map_path))
     tw, th = m["tilewidth"], m["tileheight"]
     W, H = m["width"] * tw, m["height"] * th
@@ -32,9 +33,12 @@ def render(map_path, out=None, scale=1, show_collision=False, show_grid=False):
     for ts in m["tilesets"]:
         tiles.update(load_tileset(map_path, ts))
 
-    canvas = Image.new("RGBA", (W, H), (0, 0, 0, 255))
+    bg = (0, 0, 0, 0) if transparent else (0, 0, 0, 255)
+    canvas = Image.new("RGBA", (W, H), bg)
     for lyr in m["layers"]:
         if lyr["type"] != "tilelayer":
+            continue
+        if only and lyr["name"] not in only:
             continue
         if not lyr["visible"] and not (show_collision and lyr["name"] == "collision"):
             continue
@@ -59,8 +63,8 @@ def render(map_path, out=None, scale=1, show_collision=False, show_grid=False):
         canvas = canvas.resize((W * scale, H * scale), Image.NEAREST)
 
     out = out or "output/" + os.path.splitext(os.path.basename(map_path))[0] + ".png"
-    os.makedirs(os.path.dirname(out), exist_ok=True)
-    canvas.convert("RGB").save(out)
+    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+    canvas.save(out) if transparent else canvas.convert("RGB").save(out)
     print(f"Vorschau -> {out}")
     return out
 
@@ -72,5 +76,10 @@ if __name__ == "__main__":
     p.add_argument("--scale", type=int, default=1)
     p.add_argument("--collision", action="store_true", help="Kollision rot einblenden")
     p.add_argument("--grid", action="store_true")
+    p.add_argument("--layers", default=None,
+                   help="nur diese Layer rendern, z.B. ground oder decoration,overlay")
+    p.add_argument("--transparent", action="store_true",
+                   help="Hintergrund transparent lassen (fuer Sprite-Ebenen)")
     a = p.parse_args()
-    render(a.map, a.out, a.scale, a.collision, a.grid)
+    only = set(a.layers.split(",")) if a.layers else None
+    render(a.map, a.out, a.scale, a.collision, a.grid, only, a.transparent)

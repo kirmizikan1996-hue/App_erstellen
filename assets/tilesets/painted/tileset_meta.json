@@ -1,7 +1,7 @@
 {
   "tile_size": 32,
   "columns": 16,
-  "count": 188,
+  "count": 245,
   "ids": {
     "grass_1": 0,
     "grass_2": 1,
@@ -18,97 +18,154 @@
     "arena_2": 12,
     "water": 13,
     "rock": 14,
-    "water_grass_0": 15,
-    "water_grass_1": 16,
-    "water_grass_2": 17,
-    "water_grass_3": 18,
-    "water_grass_4": 19,
-    "water_grass_5": 20,
-    "water_grass_6": 21,
-    "water_grass_7": 22,
-    "water_grass_8": 23,
-    "water_grass_9": 24,
-    "water_grass_10": 25,
-    "water_grass_11": 26,
-    "water_grass_12": 27,
-    "water_grass_13": 28,
-    "water_grass_14": 29,
-    "water_grass_15": 30,
-    "dirt_grass_0": 31,
-    "dirt_grass_1": 32,
-    "dirt_grass_2": 33,
-    "dirt_grass_3": 34,
-    "dirt_grass_4": 35,
-    "dirt_grass_5": 36,
-    "dirt_grass_6": 37,
-    "dirt_grass_7": 38,
-    "dirt_grass_8": 39,
-    "dirt_grass_9": 40,
-    "dirt_grass_10": 41,
-    "dirt_grass_11": 42,
-    "dirt_grass_12": 43,
-    "dirt_grass_13": 44,
-    "dirt_grass_14": 45,
-    "dirt_grass_15": 46,
-    "cobble_grass_0": 47,
-    "cobble_grass_1": 48,
-    "cobble_grass_2": 49,
-    "cobble_grass_3": 50,
-    "cobble_grass_4": 51,
-    "cobble_grass_5": 52,
-    "cobble_grass_6": 53,
-    "cobble_grass_7": 54,
-    "cobble_grass_8": 55,
-    "cobble_grass_9": 56,
-    "cobble_grass_10": 57,
-    "cobble_grass_11": 58,
-    "cobble_grass_12": 59,
-    "cobble_grass_13": 60,
-    "cobble_grass_14": 61,
-    "cobble_grass_15": 62,
-    "arena_grass_0": 63,
-    "arena_grass_1": 64,
-    "arena_grass_2": 65,
-    "arena_grass_3": 66,
-    "arena_grass_4": 67,
-    "arena_grass_5": 68,
-    "arena_grass_6": 69,
-    "arena_grass_7": 70,
-    "arena_grass_8": 71,
-    "arena_grass_9": 72,
-    "arena_grass_10": 73,
-    "arena_grass_11": 74,
-    "arena_grass_12": 75,
-    "arena_grass_13": 76,
-    "arena_grass_14": 77,
-    "arena_grass_15": 78,
-    "cliff_water_0": 79,
-    "cliff_water_1": 80,
-    "cliff_water_2": 81,
-    "cliff_water_3": 82,
-    "cliff_water_4": 83,
-    "cliff_water_5": 84,
-    "cliff_water_6": 85,
-    "cliff_water_7": 86,
-    "cliff_water_8": 87,
-    "cliff_water_9": 88,
-    "cliff_water_10": 89,
-    "cliff_water_11": 90,
-    "cliff_water_12": 91,
-    "cliff_water_13": 92,
-    "cliff_water_14": 93,
-    "cliff_water_15": 94,
-    "bush": 95,
-    "fern": 96,
-    "mushrooms": 97,
-    "log": 98,
-    "boulder": 99,
-    "bones": 100,
-    "skull": 101,
-    "campfire": 102,
-    "lantern": 103,
-    "signpost": 104,
-    "tall_grass": 105
+    "sand_1": 15,
+    "sand_2": 16,
+    "farm_1": 17,
+    "farm_2": 18,
+    "crops": 19,
+    "fence_h": 20,
+    "fence_v": 21,
+    "bridge_h": 22,
+    "bridge_v": 23,
+    "water_grass_0": 24,
+    "water_grass_1": 25,
+    "water_grass_2": 26,
+    "water_grass_3": 27,
+    "water_grass_4": 28,
+    "water_grass_5": 29,
+    "water_grass_6": 30,
+    "water_grass_7": 31,
+    "water_grass_8": 32,
+    "water_grass_9": 33,
+    "water_grass_10": 34,
+    "water_grass_11": 35,
+    "water_grass_12": 36,
+    "water_grass_13": 37,
+    "water_grass_14": 38,
+    "water_grass_15": 39,
+    "dirt_grass_0": 40,
+    "dirt_grass_1": 41,
+    "dirt_grass_2": 42,
+    "dirt_grass_3": 43,
+    "dirt_grass_4": 44,
+    "dirt_grass_5": 45,
+    "dirt_grass_6": 46,
+    "dirt_grass_7": 47,
+    "dirt_grass_8": 48,
+    "dirt_grass_9": 49,
+    "dirt_grass_10": 50,
+    "dirt_grass_11": 51,
+    "dirt_grass_12": 52,
+    "dirt_grass_13": 53,
+    "dirt_grass_14": 54,
+    "dirt_grass_15": 55,
+    "cobble_grass_0": 56,
+    "cobble_grass_1": 57,
+    "cobble_grass_2": 58,
+    "cobble_grass_3": 59,
+    "cobble_grass_4": 60,
+    "cobble_grass_5": 61,
+    "cobble_grass_6": 62,
+    "cobble_grass_7": 63,
+    "cobble_grass_8": 64,
+    "cobble_grass_9": 65,
+    "cobble_grass_10": 66,
+    "cobble_grass_11": 67,
+    "cobble_grass_12": 68,
+    "cobble_grass_13": 69,
+    "cobble_grass_14": 70,
+    "cobble_grass_15": 71,
+    "arena_grass_0": 72,
+    "arena_grass_1": 73,
+    "arena_grass_2": 74,
+    "arena_grass_3": 75,
+    "arena_grass_4": 76,
+    "arena_grass_5": 77,
+    "arena_grass_6": 78,
+    "arena_grass_7": 79,
+    "arena_grass_8": 80,
+    "arena_grass_9": 81,
+    "arena_grass_10": 82,
+    "arena_grass_11": 83,
+    "arena_grass_12": 84,
+    "arena_grass_13": 85,
+    "arena_grass_14": 86,
+    "arena_grass_15": 87,
+    "cliff_water_0": 88,
+    "cliff_water_1": 89,
+    "cliff_water_2": 90,
+    "cliff_water_3": 91,
+    "cliff_water_4": 92,
+    "cliff_water_5": 93,
+    "cliff_water_6": 94,
+    "cliff_water_7": 95,
+    "cliff_water_8": 96,
+    "cliff_water_9": 97,
+    "cliff_water_10": 98,
+    "cliff_water_11": 99,
+    "cliff_water_12": 100,
+    "cliff_water_13": 101,
+    "cliff_water_14": 102,
+    "cliff_water_15": 103,
+    "rock_grass_0": 104,
+    "rock_grass_1": 105,
+    "rock_grass_2": 106,
+    "rock_grass_3": 107,
+    "rock_grass_4": 108,
+    "rock_grass_5": 109,
+    "rock_grass_6": 110,
+    "rock_grass_7": 111,
+    "rock_grass_8": 112,
+    "rock_grass_9": 113,
+    "rock_grass_10": 114,
+    "rock_grass_11": 115,
+    "rock_grass_12": 116,
+    "rock_grass_13": 117,
+    "rock_grass_14": 118,
+    "rock_grass_15": 119,
+    "sand_grass_0": 120,
+    "sand_grass_1": 121,
+    "sand_grass_2": 122,
+    "sand_grass_3": 123,
+    "sand_grass_4": 124,
+    "sand_grass_5": 125,
+    "sand_grass_6": 126,
+    "sand_grass_7": 127,
+    "sand_grass_8": 128,
+    "sand_grass_9": 129,
+    "sand_grass_10": 130,
+    "sand_grass_11": 131,
+    "sand_grass_12": 132,
+    "sand_grass_13": 133,
+    "sand_grass_14": 134,
+    "sand_grass_15": 135,
+    "farm_grass_0": 136,
+    "farm_grass_1": 137,
+    "farm_grass_2": 138,
+    "farm_grass_3": 139,
+    "farm_grass_4": 140,
+    "farm_grass_5": 141,
+    "farm_grass_6": 142,
+    "farm_grass_7": 143,
+    "farm_grass_8": 144,
+    "farm_grass_9": 145,
+    "farm_grass_10": 146,
+    "farm_grass_11": 147,
+    "farm_grass_12": 148,
+    "farm_grass_13": 149,
+    "farm_grass_14": 150,
+    "farm_grass_15": 151,
+    "bush": 152,
+    "fern": 153,
+    "mushrooms": 154,
+    "log": 155,
+    "boulder": 156,
+    "bones": 157,
+    "skull": 158,
+    "campfire": 159,
+    "lantern": 160,
+    "signpost": 161,
+    "tall_grass": 162
   },
   "sprites": {
     "tree_a": {
@@ -116,12 +173,12 @@
       "h": 2,
       "tiles": [
         [
-          106,
-          107
+          163,
+          164
         ],
         [
-          108,
-          109
+          165,
+          166
         ]
       ]
     },
@@ -130,12 +187,12 @@
       "h": 2,
       "tiles": [
         [
-          110,
-          111
+          167,
+          168
         ],
         [
-          112,
-          113
+          169,
+          170
         ]
       ]
     },
@@ -144,12 +201,12 @@
       "h": 2,
       "tiles": [
         [
-          114,
-          115
+          171,
+          172
         ],
         [
-          116,
-          117
+          173,
+          174
         ]
       ]
     },
@@ -158,10 +215,10 @@
       "h": 2,
       "tiles": [
         [
-          118
+          175
         ],
         [
-          119
+          176
         ]
       ]
     },
@@ -170,10 +227,10 @@
       "h": 2,
       "tiles": [
         [
-          120
+          177
         ],
         [
-          121
+          178
         ]
       ]
     },
@@ -182,12 +239,12 @@
       "h": 2,
       "tiles": [
         [
-          122,
-          123
+          179,
+          180
         ],
         [
-          124,
-          125
+          181,
+          182
         ]
       ]
     },
@@ -196,10 +253,10 @@
       "h": 2,
       "tiles": [
         [
-          126
+          183
         ],
         [
-          127
+          184
         ]
       ]
     },
@@ -208,12 +265,12 @@
       "h": 2,
       "tiles": [
         [
-          128,
-          129
+          185,
+          186
         ],
         [
-          130,
-          131
+          187,
+          188
         ]
       ]
     },
@@ -222,32 +279,32 @@
       "h": 4,
       "tiles": [
         [
-          132,
-          133,
-          134,
-          135,
-          136
+          189,
+          190,
+          191,
+          192,
+          193
         ],
         [
-          137,
-          138,
-          139,
-          140,
-          141
+          194,
+          195,
+          196,
+          197,
+          198
         ],
         [
-          142,
-          143,
-          144,
-          145,
-          146
+          199,
+          200,
+          201,
+          202,
+          203
         ],
         [
-          147,
-          148,
-          149,
-          150,
-          151
+          204,
+          205,
+          206,
+          207,
+          208
         ]
       ]
     },
@@ -256,32 +313,32 @@
       "h": 4,
       "tiles": [
         [
-          152,
-          153,
-          154,
-          155,
-          156
+          209,
+          210,
+          211,
+          212,
+          213
         ],
         [
-          157,
-          158,
-          159,
-          160,
-          161
+          214,
+          215,
+          216,
+          217,
+          218
         ],
         [
-          162,
-          163,
-          164,
-          165,
-          166
+          219,
+          220,
+          221,
+          222,
+          223
         ],
         [
-          167,
-          168,
-          169,
-          170,
-          171
+          224,
+          225,
+          226,
+          227,
+          228
         ]
       ]
     },
@@ -290,28 +347,28 @@
       "h": 4,
       "tiles": [
         [
-          172,
-          173,
-          174,
-          175
+          229,
+          230,
+          231,
+          232
         ],
         [
-          176,
-          177,
-          178,
-          179
+          233,
+          234,
+          235,
+          236
         ],
         [
-          180,
-          181,
-          182,
-          183
+          237,
+          238,
+          239,
+          240
         ],
         [
-          184,
-          185,
-          186,
-          187
+          241,
+          242,
+          243,
+          244
         ]
       ]
     }

@@ -278,6 +278,64 @@ Layout-Änderung heißt neu malen.
 
 ---
 
+## 5h. Warum die Karte langweilig war — und was hilft
+
+Die aus der Weltkarte geschnittene Zone (`zone_tiles.py`) sah trotz
+korrektem Maßstab langweilig aus: ein runder Platz, ein Ring gleicher
+Häuser, überall dieselbe Wiese, Straßen die sternförmig vom Zentrum
+wegzeigen. **Das ist ein Layout-Problem, kein Render-Problem** — kein
+Denoise-Wert und kein Tileset repariert das.
+
+`mapgen/zone_compose.py` komponiert stattdessen bewusst:
+
+    python3 mapgen/zone_compose.py --out maps/zone_furt.json
+
+* **Terrainvielfalt** — Meer, Fluss, Strand, Acker, Hochland-Fels, Wiese
+* **Engstellen** — Fluss teilt die Zone, zwei Furten sind die Übergänge;
+  das Plateau ist nur über einen Pass erreichbar
+* **Landmarken** — Stadt an der Furt, Arena im Felskessel, Bergsee oben
+* **Wege mit Grund** — die Straße kurvt um Fels und Fluss, nicht ins Nichts
+* **Stadt mit Straßen** statt Häuserring: Hauptstraße, zwei Querstraßen,
+  kleiner Marktplatz, Häuser säumen die Straßen
+
+### Die vier Fehler, die dabei am meisten gekostet haben
+
+**Wege aus aneinandergereihten Kreisen stempeln.** Gibt ausgefranste
+Treppenränder und Wege, die wie Matschflecken aussehen. Richtig ist ein
+**Distanzfeld**: Abstand jedes Feldes zur Mittellinie ausrechnen und
+schwellen (`dist_to_path`). Ergebnis: konstante Breite, glatte Kanten.
+Dasselbe für Regionen (`blob_field` mit welliger Kante).
+
+**Straßen mit Saum eng nebeneinander.** Hauptstraße + zwei Querstraßen +
+Marktplatz verschmolzen zu einer einzigen Pflasterfläche — dann gibt es
+keine Straßen mehr, nur noch Belag. Innerorts **ohne Saum** und die
+Querstraßen **weit auseinander** (hier ±0,08 · N).
+
+**Zwei Straßen, die versetzt enden.** Fernstraße und Hauptstraße liefen ein
+Stück parallel → doppelt so breite Stadteinfahrt. Beide auf **denselben
+Übergabepunkt** legen (`gate`).
+
+**Meer-Blob zu nah.** Mittelpunkt bei 1,16 · N mit Radius 0,98 · N flutete
+46 % der Zone samt Arena. Mittelpunkt weit nach außen (1,9 · N) und großer
+Radius (1,62 · N) — dann schneidet die Küste nur die Ecke ab.
+
+### Was gegen leere Flächen hilft
+
+Fast 50 % einfarbige Wiese ist der größte Langeweile-Treiber. Zwei Mittel:
+
+* **Terrain aufbrechen** — Felsnasen, Tümpel mit Sandufer und ausgetretene
+  Lichtungen in die Wiese streuen (nur dort, wo nichts Gebautes liegt).
+* **Deko in Nestern statt gleichmäßig.** Gleichmäßige Streuung sieht aus wie
+  Rauschen und lässt die Fläche trotzdem leer wirken. Cluster mit
+  `rng.normal` um wenige Zentren wirken wie gewachsene Gruppen.
+
+Ein Detail, das leicht durchrutscht: Deko wird oft aus Plandaten gesetzt
+(z. B. Feldrechtecke), das Terrain aber später überschrieben. Dann stehen
+Zäune mitten auf dem Pflaster — beim Setzen **gegen das aktuelle Terrain
+prüfen**, nicht gegen den Plan.
+
+---
+
 ## 6. Layout-Regeln fürs Gameplay
 
 Der Spieler **läuft** auf dieser Karte — das Layout muss das hergeben:

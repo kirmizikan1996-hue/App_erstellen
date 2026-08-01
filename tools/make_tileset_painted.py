@@ -292,6 +292,85 @@ def cliff_edge(combo):
     return img
 
 
+def sand(v=0):
+    """Strand/Duene — hell, koernig, mit ein paar Kieseln."""
+    r = np.random.default_rng(80 + v)
+    img = canvas()
+    mottle(img, ALL, P["sand_wet"], (232, 214, 174), cells=4, r=r)
+    for _ in range(26):
+        y, x = r.integers(0, TILE, 2)
+        img[y, x, :3] = (198, 176, 138)
+    for _ in range(5):
+        y, x = r.integers(1, TILE - 2, 2)
+        img[y:y + 2, x:x + 2, :3] = (176, 168, 152)
+    img[..., 3] = 255
+    return img
+
+
+def farmland(v=0):
+    """Acker mit Pflugfurchen — quer gepfluegt, damit Felder als Felder lesen."""
+    r = np.random.default_rng(90 + v)
+    img = canvas()
+    mottle(img, ALL, (108, 82, 54), (146, 116, 80), cells=4, r=r)
+    for y in range(1 + v * 2, TILE, 6):                   # Furchen
+        img[y:y + 2, :, :3] = (92, 70, 46)
+        img[max(0, y - 1):y, :, :3] = (162, 132, 94)
+    for _ in range(8):
+        y, x = r.integers(0, TILE, 2)
+        img[y, x, :3] = (178, 152, 116)
+    img[..., 3] = 255
+    return img
+
+
+def crops():
+    """Setzlingsreihen, transparent — kommt ueber den Acker."""
+    img = canvas()
+    for y in range(3, TILE, 6):
+        for x in range(3, TILE - 2, 7):
+            img[y:y + 4, x, :3] = (74, 122, 52); img[y:y + 4, x, 3] = 255
+            for dx, dy in ((-1, 1), (1, 1), (-2, 2), (2, 2)):
+                img[y + dy, x + dx, :3] = (96, 148, 64)
+                img[y + dy, x + dx, 3] = 255
+    return img
+
+
+def fence_h():
+    img = canvas()
+    for y in (14, 21):
+        img[y:y + 2, :, :3] = P["wood"]; img[y:y + 2, :, 3] = 255
+        img[y, :, :3] = (162, 126, 78)
+    for x in (4, 24):
+        img[10:27, x:x + 3, :3] = P["wood_dk"]; img[10:27, x:x + 3, 3] = 255
+        img[10:27, x, :3] = (150, 114, 70)
+        img[27:29, x:x + 4, :3] = (36, 44, 32); img[27:29, x:x + 4, 3] = 70
+    return img
+
+
+def fence_v():
+    img = canvas()
+    for x in (14, 20):
+        img[:, x:x + 2, :3] = P["wood"]; img[:, x:x + 2, 3] = 255
+        img[:, x, :3] = (162, 126, 78)
+    for y in (4, 24):
+        img[y:y + 4, 11:24, :3] = P["wood_dk"]; img[y:y + 4, 11:24, 3] = 255
+        img[y, 11:24, :3] = (150, 114, 70)
+    return img
+
+
+def bridge(vertical=False):
+    """Holzsteg — Planken quer zur Laufrichtung, Gelaender an den Seiten."""
+    img = canvas()
+    yy, xx = grid(img)
+    long_, cross = (yy, xx) if vertical else (xx, yy)
+    deck = abs(cross - 15.5) < 13
+    mottle(img, deck, P["wood_dk"], (158, 122, 76), cells=3)
+    for k in range(0, TILE, 5):                           # Planken
+        paint(img, deck & (abs(long_ - k) < 1), (92, 66, 40))
+    for s in (-13, 12):                                   # Gelaender
+        paint(img, abs(cross - 15.5 - s) < 1.6, (74, 54, 34))
+    return img
+
+
 # ----------------------------------------------------------------- Deko ----
 
 def bush():
@@ -639,6 +718,15 @@ def build():
         add(f"arena_{i + 1}", arena_floor(i))
     add("water", water(0))
     add("rock", rock_ground(0))
+    for i in range(2):
+        add(f"sand_{i + 1}", sand(i))
+    for i in range(2):
+        add(f"farm_{i + 1}", farmland(i))
+    add("crops", crops())
+    add("fence_h", fence_h())
+    add("fence_v", fence_v())
+    add("bridge_h", bridge(False))
+    add("bridge_v", bridge(True))
 
     for combo in range(16):
         add(f"water_grass_{combo}", water_grass(combo))
@@ -652,6 +740,15 @@ def build():
         add(f"arena_grass_{combo}", over_grass(combo, arena_floor(0), 0.08))
     for combo in range(16):
         add(f"cliff_water_{combo}", cliff_edge(combo))
+    # Hochland-Kante: dunkler Fusssaum, damit der Fels als Stufe liest
+    for combo in range(16):
+        add(f"rock_grass_{combo}", over_grass(combo, rock_ground(0), 0.05,
+                                              edge_col=(78, 74, 68)))
+    for combo in range(16):
+        add(f"sand_grass_{combo}", over_grass(combo, sand(0), 0.07))
+    for combo in range(16):
+        add(f"farm_grass_{combo}", over_grass(combo, farmland(0), 0.04,
+                                              edge_col=(96, 74, 48)))
 
     add("bush", bush())
     add("fern", fern())
