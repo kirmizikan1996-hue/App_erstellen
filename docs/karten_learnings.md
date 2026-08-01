@@ -463,6 +463,48 @@ python3 mapgen/zone_compose.py --tiles 256 --seed 31 \
 Untergrund und Wasser drei klar unterscheidbare Helligkeiten haben. Farbe
 allein reicht nicht, der Helligkeitsunterschied trägt die Lesbarkeit.
 
+**Aber: ein Skin macht noch keine neue Karte.** Die erste Feuerzone hatte
+dieselbe Topologie wie das Grasland — Fluss teilt Land, Meer im Südosten,
+Stadt an der Furt. Nur umgefärbt. Für eine wirklich andere Zone braucht es
+eine andere *Struktur*, siehe unten.
+
+---
+
+## 5l. Caldera: radiale statt linearer Topologie
+
+`mapgen/zone_caldera.py` ist bewusst anders aufgebaut als `zone_compose.py`.
+Dort teilt ein Fluss das Land linear und ein freies Wegenetz spannt sich
+darüber; hier ist alles **radial um den Krater** organisiert:
+
+```bash
+python3 mapgen/zone_caldera.py --tiles 256 --tileset assets/tilesets/fire \
+    --out maps/zone_caldera.json
+```
+
+* **Lavasee** im Zentrum, unpassierbar
+* **Kraterwall** aus Basalt mit genau **drei Pässen** — die einzigen Zugänge
+* **Schwefelterrasse** dahinter: der Hochlevel-Gürtel
+* **Lavaströme** strahlen nach außen und zerschneiden das Land in **Keile**
+* **Ringweg** umläuft den Berg und quert jeden Strom über eine Brücke
+* **Speichenwege** führen vom Kartenrand nach innen, einer je Keil
+
+Der Gameplay-Kern: **Schwierigkeit steigt nach innen.** Lager auf der
+Terrasse bekommen `tier: kern`, die auf der Ascheebene `rand` — die
+Progression liegt damit in der Geometrie, nicht in einer Tabelle.
+
+### Zwei Fallen bei radialen Layouts
+
+* **Zeichenreihenfolge.** Erst hatte ich die Lavaströme *nach* Wall und See
+  gezogen — sie schnitten den Krater auf, das Zentrum war Matsch. Ströme
+  zuerst, Wall und See danach obendrauf.
+* **Zu viele Strahlen.** Sechs Ströme laufen am Krater so dicht zusammen,
+  dass die Keile verschwinden. Fünf Ströme, Start erst außerhalb des Walls
+  (`R_rim * 1.05`), schmalere Bänder — dann bleiben die Keile bespielbar.
+
+Und wieder die Helligkeitsregel: Der Ringweg war zuerst aus Basaltplatten
+und verschwand im gleich dunklen Kraterwall. Als heller Bimskies-Weg
+umläuft er den Berg sichtbar.
+
 ---
 
 ## 6. Layout-Regeln fürs Gameplay
