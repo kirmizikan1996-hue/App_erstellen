@@ -423,6 +423,48 @@ mit `--tiles 160` arbeiten und erst am Ende groß rendern.
 
 ---
 
+## 5k. Themen als Skin: das Tileset austauschen, nicht den Generator
+
+Die Feuerzone braucht **keine Zeile Layoutcode**. `make_tileset_fire.py`
+erzeugt bewusst dieselben Tile-**Namen** wie das painted-Tileset, nur mit
+anderer Optik — damit ist das Tileset ein reiner Skin:
+
+```bash
+python3 tools/make_tileset_fire.py
+python3 mapgen/zone_compose.py --tiles 256 --seed 31 \
+    --tileset assets/tilesets/fire --out maps/zone_feuer.json
+```
+
+| Name im Tileset | Grasland | Feuerzone |
+|---|---|---|
+| `grass_*` | Wiese | Ascheebene mit Glutadern |
+| `water` | Wasser | **Lava** |
+| `rock` | Fels | Basalt mit glühenden Rissen |
+| `sand_*` | Strand | Schwefelablagerung |
+| `farm_*` / `crops` | Acker | Schwefelbeete / Schwefelkristalle |
+| `cobble_*` | Pflaster | Basaltplatten |
+| `dirt_*` | Erdweg | Bimskies-Pfad |
+| `arena_*` | zertreten | verbrannter Boden |
+| `campfire` | Lagerfeuer | Feuerschale |
+| `house_*` | Fachwerk | Basalthütte mit glühenden Fenstern |
+
+**Zwei Fallen, beide selbst erlebt:**
+
+* **Glüheffekt überdosiert.** Erste Fassung überzog jede Aschekachel mit
+  einem Adernetz — die Ebene sah aus wie Lava, und der echte Lavastrom fiel
+  nicht mehr auf. Fix: die Risse regional sperren (nur ein Teil der Kachel
+  darf überhaupt welche haben) und das Band schmaler ziehen.
+* **Weg und Untergrund zu ähnlich.** Schlacke und Asche hatten fast dieselbe
+  Farbe, die Wege verschwanden komplett. Im Grasland trägt der Kontrast
+  grün↔braun von allein; in einer Zone, die durchgehend dunkelbraun ist,
+  muss man ihn erzwingen — Wege sind jetzt heller Bimskies.
+
+**Merksatz fürs nächste Thema (Eis, Wüste, Sumpf):** Erst prüfen, ob Weg,
+Untergrund und Wasser drei klar unterscheidbare Helligkeiten haben. Farbe
+allein reicht nicht, der Helligkeitsunterschied trägt die Lesbarkeit.
+
+---
+
 ## 6. Layout-Regeln fürs Gameplay
 
 Der Spieler **läuft** auf dieser Karte — das Layout muss das hergeben:
