@@ -503,7 +503,32 @@ Progression liegt damit in der Geometrie, nicht in einer Tabelle.
 
 Und wieder die Helligkeitsregel: Der Ringweg war zuerst aus Basaltplatten
 und verschwand im gleich dunklen Kraterwall. Als heller Bimskies-Weg
-umläuft er den Berg sichtbar.
+umläuft er den Berg sichtbar. Dasselbe galt später für die Dämme.
+
+### Die Bosskammer
+
+Der Krater ist kein toter Lavasee, sondern das **Ziel** der Zone:
+
+    Bossplattform   r < 0.055·N   begehbar, Feuerschalen im Kreis, Knochenfeld
+    Lavagraben      bis 0.100·N   macht sie gefährlich
+    Sims            bis 0.142·N   Sammelplatz vor dem Übergang
+    Kraterwall      bis 0.182·N   drei Pässe, von Totems flankiert
+
+Drei **Dämme** queren den Graben und fluchten mit den drei Pässen — damit
+ist der Weg von außen durchgehend lesbar: Ringweg → Pass → Sims → Damm →
+Boss. Innerhalb des Walls werden **keine Lager** platziert, sonst wird der
+Anlauf mit Trash zugestellt.
+
+**Erreichbarkeit wird jetzt geprüft.** Eine Bosskammer, die keiner betreten
+kann, fällt sonst erst im Spiel auf. Der Generator macht am Ende eine
+Flutfüllung über `collision.png` und meldet, ob die Kammer in derselben
+begehbaren Region liegt wie die Außenwelt:
+
+    Bosskammer erreichbar (mit der Aussenwelt verbunden)
+
+Das ist billig zu rechnen und der einzige Weg, diese Klasse Fehler
+zuverlässig auszuschließen — bei radialen Layouts kann schon eine leicht
+verschobene Grabenkante den Damm abschneiden.
 
 ---
 

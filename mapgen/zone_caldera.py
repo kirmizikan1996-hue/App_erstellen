@@ -64,13 +64,17 @@ def compose(N, rng, n_flows=6):
     rad = np.hypot(xx - cx, yy - cy)
     ang = np.arctan2(yy - cy, xx - cx)
 
-    R_lake = N * 0.085
-    R_rim = N * 0.145
-    R_terrace = N * 0.255
-    R_ring = N * 0.325
+    # Von innen nach aussen: Bossplattform, Lavagraben, Sims, Kraterwall,
+    # Schwefelterrasse, Ringweg.
+    R_boss = N * 0.055
+    R_moat = N * 0.100
+    R_ledge = N * 0.142
+    R_wall = N * 0.182
+    R_terrace = N * 0.268
+    R_ring = N * 0.335
     plan["center"] = (cx, cy)
-    plan["radii"] = {"lake": R_lake, "rim": R_rim, "terrace": R_terrace,
-                     "ring": R_ring}
+    plan["radii"] = {"boss": R_boss, "moat": R_moat, "ledge": R_ledge,
+                     "wall": R_wall, "terrace": R_terrace, "ring": R_ring}
 
     # Kanten aller Ringe leicht wellig, sonst wirkt es wie eine Zielscheibe
     wob = (fbm2(N, rng, 3, 3) - 0.5) * N * 0.035
@@ -86,7 +90,7 @@ def compose(N, rng, n_flows=6):
     flows = []
     for i, a in enumerate(flow_angles):
         reach = N * (0.72 if i % 3 else 0.52)     # nicht alle bis zum Rand
-        pts = wobbly_ray(cx, cy, a, R_rim * 1.05, reach, rng)
+        pts = wobbly_ray(cx, cy, a, R_wall * 1.05, reach, rng)
         d = dist_to_path(N, pts)
         lay(terr, d <= 4.6, SAND)                 # Schwefelsaum
         lay(terr, d <= 2.2, WATER)
@@ -101,15 +105,28 @@ def compose(N, rng, n_flows=6):
     # --- Kraterwall mit drei Paessen ---------------------------------------
     passes = [rng.random() * 2 * math.pi]
     passes += [passes[0] + 2 * math.pi / 3, passes[0] + 4 * math.pi / 3]
-    wall = (rad + wob > R_lake) & (rad + wob < R_rim)
+    wall = (rad + wob > R_ledge) & (rad + wob < R_wall)
     for pa in passes:                       # Luecken in den Wall schneiden
         d = np.abs(np.arctan2(np.sin(ang - pa), np.cos(ang - pa)))
-        wall &= d > 0.16
+        wall &= d > 0.15
     lay(terr, wall, ROCK)
     plan["passes"] = passes
 
-    # --- Lavasee im Krater --------------------------------------------------
-    lay(terr, rad + wob * 0.5 < R_lake, WATER)
+    # --- Bosskammer: Plattform im Lavagraben, ueber drei Daemme erreichbar --
+    # Der Krater ist kein toter Lavasee, sondern das Ziel der Zone. Der
+    # Graben macht ihn gefaehrlich, die Daemme machen ihn begehbar — und sie
+    # fluchten mit den Paessen, damit der Weg von aussen durchgehend lesbar
+    # bleibt.
+    lay(terr, rad + wob * 0.6 < R_ledge, SAND)            # Sims am Grabenrand
+    lay(terr, rad + wob * 0.5 < R_moat, WATER)            # Lavagraben
+    for pa in passes:
+        p0 = (cx + math.cos(pa) * (R_boss * 0.7), cy + math.sin(pa) * (R_boss * 0.7))
+        p1 = (cx + math.cos(pa) * (R_ledge + 2), cy + math.sin(pa) * (R_ledge + 2))
+        # heller Bimskies, nicht Basaltplatten: sonst verschmelzen die Daemme
+        # optisch mit dem gleich dunklen Kraterwall
+        lay(terr, dist_to_path(N, [p0, p1]) <= 2.4, DIRT)
+    lay(terr, rad + wob * 0.3 < R_boss, ARENA)            # Bossplattform
+    plan["boss"] = (cx, cy, R_boss)
 
     # --- Bergrahmen aussen --------------------------------------------------
     edge_d = np.minimum.reduce([xx, yy, N - 1 - xx, N - 1 - yy])
@@ -130,6 +147,39 @@ def compose(N, rng, n_flows=6):
                              rng, rough=0.5) < 0, ROCK)
         spires.append((sx, sy))
     plan["spires"] = spires
+
+    # --- Ascheebene aufbrechen ---------------------------------------------
+    # Aussen ist sonst alles dieselbe Asche. Erkaltete Krusten, Schwefelaugen
+    # und ein paar Lavatuempel geben der Flaeche Struktur und Orientierung.
+    def open_ash(px, py, r):
+        y0, y1 = max(0, int(py - r * 2)), min(N, int(py + r * 2))
+        x0, x1 = max(0, int(px - r * 2)), min(N, int(px + r * 2))
+        return np.all(np.isin(terr[y0:y1, x0:x1], (GRASS, ROCK, SAND)))
+
+    # Sparsam dosieren: zu viele Flecken machen die Ebene unruhig UND nehmen
+    # den Lagern den Platz, den place_camps braucht.
+    for _ in range(32):
+        px, py = rng.random() * N, rng.random() * N
+        r = N * (0.010 + rng.random() * 0.016)
+        if terr[int(py), int(px)] != GRASS or not open_ash(px, py, r):
+            continue
+        kind = SAND if rng.random() < 0.55 else ROCK
+        lay(terr, blob_field(N, px, py, r, rng, rough=0.5) < 0, kind)
+
+    pools = 0
+    for _ in range(50):
+        if pools >= 4:
+            break
+        px, py = rng.random() * N, rng.random() * N
+        r = N * (0.016 + rng.random() * 0.016)
+        if terr[int(py), int(px)] != GRASS or not open_ash(px, py, r * 1.7):
+            continue
+        if np.hypot(px - cx, py - cy) < R_terrace * 1.25:
+            continue                       # nicht direkt am Krater
+        f = blob_field(N, px, py, r, rng, rough=0.35)
+        lay(terr, f < 3.5, SAND)
+        lay(terr, f < 0, WATER)
+        pools += 1
 
     # --- Wegenetz: Ringweg + Speichen + Passwege ---------------------------
     roads = []
@@ -156,7 +206,8 @@ def compose(N, rng, n_flows=6):
     # Passwege: vom Ring durch den Wall auf die Terrasse
     for pa in passes:
         p0 = (cx + math.cos(pa) * R_ring, cy + math.sin(pa) * R_ring)
-        p1 = (cx + math.cos(pa) * (R_lake + 3), cy + math.sin(pa) * (R_lake + 3))
+        # bis auf den Sims am Grabenrand; von dort fuehrt der Damm weiter
+        p1 = (cx + math.cos(pa) * (R_ledge - 3), cy + math.sin(pa) * (R_ledge - 3))
         pts = curve(p0, p1, rng, bow=0.03)
         lay(terr, dist_to_path(N, pts) <= 1.5, DIRT)
         roads.append(pts)
@@ -224,7 +275,10 @@ def place_camps_radial(N, terr, road_d, rad, rng, radii, n_max):
     haerter. Innen (Schwefelterrasse) stehen die Lager dichter und tragen
     tier 'kern', aussen auf der Ascheebene sind sie ruhiger.
     """
-    free = np.isin(terr, (GRASS, SAND)) & (road_d > 3.0)
+    # Innerhalb des Kraterwalls keine Lager: dort liegen Sims, Graben und
+    # Bosskammer — die sollen frei bleiben, nicht mit Trash zugestellt werden.
+    free = np.isin(terr, (GRASS, SAND)) & (road_d > 3.0) \
+        & (rad > radii["wall"] + 4)
     d = distance_transform_edt(free).astype(np.float32)
     yy, xx = np.mgrid[0:N, 0:N]
     camps = []
@@ -319,14 +373,39 @@ def main():
     if free(int(tx_) - 1, int(ty_) - 1, 2, 2):
         put("well", int(tx_) - 1, int(ty_) - 1)
 
-    # Totems an den drei Paessen — Wegmarken zum Krater
+    # Totems flankieren die drei Paesse — macht sie als Tor lesbar
     ccx, ccy = plan["center"]
+    R = plan["radii"]
     for pa in plan["passes"]:
-        px = int(ccx + math.cos(pa) * (plan["radii"]["rim"] + 3))
-        py = int(ccy + math.sin(pa) * (plan["radii"]["rim"] + 3))
-        for dx in (-3, 3):
-            if free(px + dx, py, 1, 2):
-                put("totem", px + dx, py)
+        px = int(ccx + math.cos(pa) * (R["wall"] + 2))
+        py = int(ccy + math.sin(pa) * (R["wall"] + 2))
+        tx2, ty2 = -math.sin(pa), math.cos(pa)         # quer zum Pass
+        for s in (-4, 4):
+            gx, gy = int(px + tx2 * s), int(py + ty2 * s)
+            if 0 <= gx < N - 2 and 0 <= gy < N - 2 and not over[gy, gx] \
+                    and terr[gy, gx] != WATER:
+                put("totem", gx, gy)
+
+    # --- Bosskammer ausstatten ---------------------------------------------
+    bx_, by_, br = plan["boss"]
+    n_br = max(8, int(br * 1.1))
+    for k in range(n_br):                              # Feuerschalen im Kreis
+        t = k * 2 * math.pi / n_br
+        x, y = int(bx_ + math.cos(t) * br * 0.82), int(by_ + math.sin(t) * br * 0.82)
+        if 0 <= x < N and 0 <= y < N and terr[y, x] == ARENA and not deco[y, x]:
+            deco[y, x] = ids["campfire"]
+    for _ in range(int(br * br * 0.5)):                # Knochenfeld
+        t = rng.random() * 2 * math.pi
+        d = br * math.sqrt(rng.random()) * 0.72
+        x, y = int(bx_ + math.cos(t) * d), int(by_ + math.sin(t) * d)
+        if 0 <= x < N and 0 <= y < N and terr[y, x] == ARENA and not deco[y, x]:
+            deco[y, x] = ids["skull"] if rng.random() < 0.35 else ids["bones"]
+    for k in range(3):                                 # Totems in der Mitte
+        t = k * 2 * math.pi / 3 + 0.4
+        x, y = int(bx_ + math.cos(t) * br * 0.35), int(by_ + math.sin(t) * br * 0.35)
+        if free(x, y, 1, 2) or (0 <= x < N - 2 and 0 <= y < N - 2
+                                and terr[y, x] == ARENA and not over[y, x]):
+            put("totem", x, y)
 
     for (x0, y0, w, h) in plan["fields"]:
         for x in range(x0, x0 + w):
@@ -473,6 +552,22 @@ def main():
                    "town": {"x": int(tx_), "y": int(ty_)},
                    "bridges": [{"x": int(bx), "y": int(by)}
                                for bx, by in plan["bridges"]]}, f, indent=2)
+
+    # --- Erreichbarkeitspruefung -------------------------------------------
+    # Eine Bosskammer, die keiner betreten kann, faellt sonst erst im Spiel
+    # auf. Flutfuellung: liegt die Kammer in derselben begehbaren Region wie
+    # die Aussenwelt?
+    from scipy.ndimage import label
+    lab, _ = label(~block)
+    sizes = np.bincount(lab.ravel())
+    sizes[0] = 0
+    outer = int(np.argmax(sizes))
+    ci, cj = int(ccy), int(ccx)
+    if not block[ci, cj] and lab[ci, cj] == outer:
+        print("  Bosskammer erreichbar (mit der Aussenwelt verbunden)")
+    else:
+        print("  WARNUNG: Bosskammer NICHT von aussen erreichbar — "
+              "Daemme pruefen (R_moat/R_boss/Passwinkel)")
 
     names = {"Lava": WATER, "Asche": GRASS, "Weg": DIRT, "Basaltplatten": COBBLE,
              "Lager": ARENA, "Schwefel": SAND, "Basalt": ROCK, "Beete": FARM}
