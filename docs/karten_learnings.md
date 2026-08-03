@@ -532,6 +532,65 @@ verschobene Grabenkante den Damm abschneiden.
 
 ---
 
+## 5m. ComfyUI kann Kachel-Wiederholung NICHT reparieren
+
+Wichtiger Negativbefund. Die Tile-Zone durch `build_painted_zone.py` zu
+schicken hilft **am Übersichtsmaßstab** (mehr Tiefe, Asche bekommt Textur),
+zerstört aber die Lesbarkeit bei 1:1:
+
+| Denoise | Ergebnis auf großen einfarbigen Flächen (Lava, Schwefel) |
+|---|---|
+| 0.28 | Raster bleibt exakt erhalten — identische Motive in Reih und Glied |
+| 0.42 | jede wiederholte Kachel wird zum **gleichen** glänzenden Objekt → sieht aus wie Blasenfolie |
+
+**Niedrigerer Denoise hilft nicht** — er macht es schlimmer. Die Ursache ist
+nicht der Sampler, sondern die Quelle: eine perfekt wiederholte Kachel bleibt
+bei niedrigem Denoise perfekt wiederholt, und bei höherem wird sie zu einem
+wiederholten *erkennbaren Ding*. Das betont das Raster, statt es aufzulösen.
+
+**Konsequenz für die Pipeline.** Wer einen gemalten Boden will, darf nicht
+die gekachelte Karte malen lassen, sondern muss den Untergrund
+**durchgehend prozedural** rendern (wie `zone_arena.py` es mit numpy-Rauschen
+tut — dort gibt es keine Wiederholung) und erst *dieses* Bild durch ComfyUI
+schicken. Die Tile-Sprites kommen danach scharf obendrauf.
+
+Bis dahin gilt die Arbeitsteilung von Abschnitt 5e unverändert:
+Tiles = begehbarer Boden, gemaltes PNG = Übersichtskarte.
+
+---
+
+## 5n. Logische Zusammenhänge — woran eine Zone „unecht" wirkt
+
+Die Caldera war geometrisch sauber und wirkte trotzdem konstruiert. Fünf
+Brüche und ihre Reparatur:
+
+| Bruch | Reparatur |
+|---|---|
+| Siedlung ohne Existenzgrund, Schwefelbeete in einem anderen Keil | Abbau in **denselben** Keil, bergwärts, mit Werksweg → Bergarbeiterdorf |
+| Offene Siedlung neben 86 Monsterlagern | Palisade zur Vulkanseite + zwei Wachtürme |
+| Speichenwege enden am Kartenrand im Nichts | **Torbogen** = Übergang zur Nachbarzone |
+| Weg zum Boss unbewacht | Wachturm + Totems an jedem Pass, je zwei Elite-Lager flankierend |
+| Lagertypen gewürfelt | **Typ folgt dem Ort** (siehe unten) |
+
+    nah am Weg          -> banditen   lauern Reisenden auf
+    Kraternähe          -> untote     Hochlevel-Terrasse
+    bei Fels/Obsidian   -> ruine
+    enge Tasche         -> spinnen
+    offenes Ödland      -> bestien
+
+**Der lehrreichste Fehler dabei:** Beim ersten Versuch entstanden *null*
+Banditen. Die Lager-Platzierung sucht den größten freien Kreis — also
+maximal weit weg von Wegen. Die Bedingung „nah am Weg" konnte damit nie
+auslösen. Wer einen Typ an eine Bedingung knüpft, die der Platzierungs-
+algorithmus systematisch ausschließt, bekommt ihn nie: Banditen brauchen
+einen **eigenen Durchgang**, der die Straßen entlangläuft.
+
+Zweite Falle: Schwellen wie „Abstand zum Weg < 9 Tiles" absolut zu rechnen.
+Bei 256 statt 160 Tiles sind die Taschen größer, dadurch kippte die
+Verteilung auf 45 von 85 Lagern zu „bestien". Schwellen relativ zu `N`.
+
+---
+
 ## 6. Layout-Regeln fürs Gameplay
 
 Der Spieler **läuft** auf dieser Karte — das Layout muss das hergeben:

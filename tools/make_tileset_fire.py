@@ -530,6 +530,51 @@ def magma_well():
     return img
 
 
+def watchtower():
+    """Wachturm 2x3 — Landmarke und Zeichen, dass hier jemand Wache haelt."""
+    img = canvas(2, 3)
+    yy, xx = grid(img)
+    shadow(img, 88, 32, 6, 20, alpha=78)
+    base = (yy > 74) & (yy < 92) & (np.abs(xx - 32) < 20)
+    mottle(img, base, F["basalt_dk"], F["basalt"], cells=2)
+    shaft = (yy > 26) & (yy <= 76) & (np.abs(xx - 32) < 14)
+    mottle(img, shaft, F["basalt_dk"], F["basalt_lt"], cells=3)
+    for y in range(30, 76, 8):                        # Steinlagen
+        paint(img, shaft & (np.abs(yy - y) < 1), F["basalt_dk"])
+    crown = (yy > 16) & (yy <= 28) & (np.abs(xx - 32) < 18)
+    mottle(img, crown, F["basalt"], F["basalt_lt"], cells=2)
+    for x in range(16, 49, 8):                        # Zinnen
+        paint(img, (yy > 10) & (yy <= 18) & (np.abs(xx - x) < 3), F["basalt_lt"])
+    paint(img, (((yy - 8) / 5.0) ** 2 + ((xx - 32) / 6.0) ** 2 < 1), F["ember"])
+    paint(img, (((yy - 6) / 3.0) ** 2 + ((xx - 32) / 3.5) ** 2 < 1),
+          F["ember_hot"])
+    paint(img, (yy > 60) & (yy < 76) & (np.abs(xx - 32) < 5), (22, 18, 20))
+    for y in (40, 52):                                # gluehende Sehschlitze
+        paint(img, (np.abs(yy - y) < 3) & (np.abs(xx - 32) < 2), F["ember"])
+    return img
+
+
+def gate():
+    """Torbogen 3x2 — markiert Zonenausgaenge und die Kraterpaesse."""
+    img = canvas(3, 2)
+    yy, xx = grid(img)
+    shadow(img, 60, 48, 5, 34, alpha=74)
+    for px in (18, 78):
+        pil = (yy > 14) & (yy < 62) & (np.abs(xx - px) < 10)
+        mottle(img, pil, F["basalt_dk"], F["basalt_lt"], cells=2)
+        for y in range(18, 62, 8):
+            paint(img, pil & (np.abs(yy - y) < 1), F["basalt_dk"])
+    lint = (yy > 8) & (yy < 24) & (xx > 8) & (xx < 88)
+    mottle(img, lint, F["basalt"], F["basalt_lt"], cells=2)
+    paint(img, (yy > 4) & (yy < 10) & (xx > 4) & (xx < 92), F["basalt_dk"])
+    for rx in range(22, 80, 12):                      # gluehende Runen
+        paint(img, (np.abs(yy - 16) < 3) & (np.abs(xx - rx) < 2), F["ember"])
+    for px in (18, 78):                               # Feuerschalen oben
+        paint(img, (((yy - 6) / 4.0) ** 2 + ((xx - px) / 4.0) ** 2 < 1),
+              F["ember_hot"])
+    return img
+
+
 def basalt_hut(seed=0, w_tiles=5):
     """"house": Basalthaus mit gluehenden Fenstern und Ascheziegeln."""
     r = np.random.default_rng(500 + seed)
@@ -664,6 +709,8 @@ def build():
     add_sprite("tent", demon_tent())
     add_sprite("totem", fire_totem())
     add_sprite("well", magma_well())
+    add_sprite("tower", watchtower())
+    add_sprite("gate", gate())
     add_sprite("house_a", basalt_hut(0, 5))
     add_sprite("house_b", basalt_hut(1, 5))
     add_sprite("house_c", basalt_hut(2, 4))

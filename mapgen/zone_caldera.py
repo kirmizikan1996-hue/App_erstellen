@@ -247,11 +247,14 @@ def compose(N, rng, n_flows=6):
                               cy + math.sin(ta) * R_ring), rng, bow=0.05)
     lay(terr, dist_to_path(N, link) <= 1.4, DIRT)
 
-    # --- Schwefelbeete: Abbau am Rand der Terrasse -------------------------
+    # --- Schwefelwerk: der GRUND, warum die Siedlung hier steht ------------
+    # Vorher lagen Beete und Dorf in verschiedenen Keilen — dann existiert das
+    # Dorf ohne Anlass mitten in einer Monsterzone. Der Abbau gehoert in
+    # denselben Keil, bergwaerts vom Dorf, mit einem Werksweg dazwischen.
     fields = []
-    fa = flow_angles[2] + math.pi / n_flows
-    fx0 = cx + math.cos(fa) * (R_terrace + N * 0.045) - N * 0.07
-    fy0 = cy + math.sin(fa) * (R_terrace + N * 0.045) - N * 0.06
+    fa = ta
+    fx0 = cx + math.cos(fa) * (R_terrace + N * 0.030) - N * 0.06
+    fy0 = cy + math.sin(fa) * (R_terrace + N * 0.030) - N * 0.05
     for r_ in range(2):
         for c_ in range(2):
             w, h = int(N * 0.058), int(N * 0.050)
@@ -265,7 +268,49 @@ def compose(N, rng, n_flows=6):
             fields.append((x0, y0, w, h))
     plan["fields"] = fields
 
+    # Werksweg Dorf -> Beete: ohne Anbindung waere der Abbau nicht erklaerbar
+    if fields:
+        fx, fy, fw, fh = fields[0]
+        work = curve((tx_, ty_), (fx + fw / 2, fy + fh / 2), rng, bow=0.05)
+        lay(terr, dist_to_path(N, work) <= 1.4, DIRT)
+        plan["workroad"] = work
+
+    # --- Zonenausgaenge: die Speichen brauchen ein Ziel --------------------
+    # Ein Weg, der am Kartenrand einfach aufhoert, wirkt wie ein Fehler.
+    # Zwei Speichen enden an einem Torbogen = Uebergang in die Nachbarzone.
+    gates = []
+    for pts in spokes[:2]:
+        gx, gy = pts[0]                    # aeusseres Ende der Speiche
+        gx = float(np.clip(gx, 6, N - 7))
+        gy = float(np.clip(gy, 6, N - 7))
+        lay(terr, dist_to_path(N, [(gx, gy), pts[2]]) <= 2.4, COBBLE)
+        gates.append((gx, gy))
+    plan["gates"] = gates
+
     return terr, plan, rad, road_d
+
+
+def camp_type(terr, road_d, rad, radii, x, y, space, N, rng):
+    """Der Typ folgt dem ORT, nicht dem Zufall.
+
+    Gewuerfelte Typen wirken beliebig: ein Banditenlager mitten in der
+    Einoede ergibt keinen Sinn, Untote ohne Ruine auch nicht. Aus der Lage
+    abgeleitet erzaehlt jedes Lager, warum es dort ist.
+    """
+    # Schwellen relativ zur Kartengroesse: absolut in Tiles gerechnet kippt
+    # bei 256 alles zu "bestien", weil die Taschen dort groesser sind.
+    if road_d[y, x] < N * 0.055:
+        return "banditen"                     # lauern Reisenden am Weg auf
+    if rad[y, x] < radii["terrace"] + N * 0.03:
+        return "untote" if rng.random() < 0.55 else "bestien"   # Kraternaehe
+    k = max(5, int(N * 0.045))
+    y0, y1 = max(0, y - k), min(N, y + k + 1)
+    x0, x1 = max(0, x - k), min(N, x + k + 1)
+    if (terr[y0:y1, x0:x1] == ROCK).mean() > 0.07:
+        return "ruine"                        # bei Fels und Obsidianfeldern
+    if space < N * 0.058:
+        return "spinnen"                      # enge, abgeschiedene Taschen
+    return "bestien"                          # offenes Oedland
 
 
 def place_camps_radial(N, terr, road_d, rad, rng, radii, n_max):
@@ -292,7 +337,8 @@ def place_camps_radial(N, terr, road_d, rad, rng, radii, n_max):
         r = min(space * 0.66, 9.0) * (0.60 + rng.random() * 0.58)
         camps.append({"x": int(x), "y": int(y), "r": round(r, 1),
                       "tier": "kern" if inner else "rand",
-                      "type": TYPE_ORDER[int(rng.integers(len(TYPE_ORDER)))]})
+                      "type": camp_type(terr, road_d, rad, radii, x, y,
+                                        space, N, rng)})
         clear = r * (1.7 if inner else 2.9)
         d[(xx - x) ** 2 + (yy - y) ** 2 < clear * clear] = 0
     return camps
@@ -321,6 +367,49 @@ def main():
     print("[3/4] Lager, Bebauung und Deko ...")
     camps = place_camps_radial(N, terr, road_d, rad, rng, plan["radii"],
                                n_max=max(20, int(N * N / 820)))
+
+    # Banditen lauern AM Weg. Die Greedy-Platzierung setzt Lager aber
+    # maximal weit von Wegen weg — deshalb ein eigener Durchgang, sonst
+    # entsteht dieser Typ nie.
+    taken = [(c["x"], c["y"], c["r"]) for c in camps]
+    for pts in plan["roads"]:
+        for i in range(3, len(pts) - 3, 5):
+            if rng.random() > 0.55:
+                continue
+            (ax0, ay0), (bx0, by0) = pts[i - 1], pts[i + 1]
+            dx, dy = bx0 - ax0, by0 - ay0
+            nn = math.hypot(dx, dy) or 1.0
+            nx, ny = -dy / nn, dx / nn
+            s = 1 if rng.random() < 0.5 else -1
+            rr = N * 0.022
+            gx = int(pts[i][0] + nx * s * (rr + 4))
+            gy = int(pts[i][1] + ny * s * (rr + 4))
+            if not (3 < gx < N - 4 and 3 < gy < N - 4):
+                continue
+            if terr[gy, gx] not in (GRASS, SAND):
+                continue
+            if any((gx - ox) ** 2 + (gy - oy) ** 2 < (rr + orr + 6) ** 2
+                   for ox, oy, orr in taken):
+                continue
+            camps.append({"x": gx, "y": gy, "r": round(rr, 1),
+                          "tier": "rand", "type": "banditen"})
+            taken.append((gx, gy, rr))
+
+    # Wachlager flankieren die drei Paesse: der Anlauf zum Boss soll bewacht
+    # sein, sonst spaziert man ungehindert bis an den Krater.
+    ccx0, ccy0 = plan["center"]
+    R0 = plan["radii"]
+    r_guard = (R0["wall"] + R0["terrace"]) / 2
+    for pa in plan["passes"]:
+        for s in (-1, 1):
+            gx = int(ccx0 + math.cos(pa + s * 0.34) * r_guard)
+            gy = int(ccy0 + math.sin(pa + s * 0.34) * r_guard)
+            if not (2 < gx < N - 3 and 2 < gy < N - 3):
+                continue
+            if terr[gy, gx] not in (GRASS, SAND):
+                continue
+            camps.append({"x": gx, "y": gy, "r": round(N * 0.030, 1),
+                          "tier": "kern", "type": "untote"})
     plan["camps"] = camps
     for c in camps:
         if not CAMP_TYPES[c["type"]]["floor"]:
@@ -373,9 +462,10 @@ def main():
     if free(int(tx_) - 1, int(ty_) - 1, 2, 2):
         put("well", int(tx_) - 1, int(ty_) - 1)
 
-    # Totems flankieren die drei Paesse — macht sie als Tor lesbar
+    # --- Paesse als Tor kenntlich machen ------------------------------------
     ccx, ccy = plan["center"]
     R = plan["radii"]
+    has = sprites.__contains__
     for pa in plan["passes"]:
         px = int(ccx + math.cos(pa) * (R["wall"] + 2))
         py = int(ccy + math.sin(pa) * (R["wall"] + 2))
@@ -385,6 +475,41 @@ def main():
             if 0 <= gx < N - 2 and 0 <= gy < N - 2 and not over[gy, gx] \
                     and terr[gy, gx] != WATER:
                 put("totem", gx, gy)
+        # Wachturm neben jedem Pass — Landmarke aus der Ferne
+        if has("tower"):
+            wx = int(px + tx2 * 9)
+            wy = int(py + ty2 * 9)
+            if 0 <= wx < N - 3 and 0 <= wy < N - 4 and not over[wy, wx] \
+                    and terr[wy, wx] in (GRASS, SAND):
+                put("tower", wx, wy)
+
+    # --- Zonenausgaenge: Torbogen am Kartenrand -----------------------------
+    if has("gate"):
+        for (gx, gy) in plan.get("gates", []):
+            x, y = int(gx) - 1, int(gy) - 1
+            if 0 <= x < N - 4 and 0 <= y < N - 3:
+                put("gate", x, y, blocking=False)   # begehbar, es ist ein Tor
+
+    # --- Dorf befestigen: Palisade zur Vulkanseite + zwei Tuerme -----------
+    # Eine offene Siedlung neben 80 Monsterlagern ergibt keinen Sinn.
+    ta_ = math.atan2(ty_ - ccy, tx_ - ccx)
+    for k in range(46):
+        a2 = ta_ + math.pi + (k / 45 - 0.5) * 2.1     # Bogen zum Krater hin
+        px = int(tx_ + math.cos(a2) * N * 0.075)
+        py = int(ty_ + math.sin(a2) * N * 0.075)
+        if not (0 <= px < N and 0 <= py < N):
+            continue
+        if terr[py, px] in (COBBLE, WATER, FARM) or over[py, px] or deco[py, px]:
+            continue
+        deco[py, px] = ids["fence_h"] if abs(math.sin(a2)) < 0.5 else ids["fence_v"]
+        block[py, px] = True
+    if has("tower"):
+        for s in (-1, 1):
+            a2 = ta_ + math.pi + s * 1.05
+            wx = int(tx_ + math.cos(a2) * N * 0.075) - 1
+            wy = int(ty_ + math.sin(a2) * N * 0.075) - 2
+            if 0 <= wx < N - 3 and 0 <= wy < N - 4 and not over[wy, wx]:
+                put("tower", wx, wy)
 
     # --- Bosskammer ausstatten ---------------------------------------------
     bx_, by_, br = plan["boss"]
