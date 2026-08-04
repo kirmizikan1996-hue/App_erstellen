@@ -33,7 +33,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from make_tileset_painted import (ALL, COLS, TILE, canvas, corner_field, fbm,
                                   grid, mottle, paint, toplight)
-from sprites_hd import hd_boulder, hd_conifer, hd_house
+from sprites_hd import hd_boulder, hd_conifer, hd_house, hd_tower
 
 rng = np.random.default_rng(1812)
 
@@ -1024,7 +1024,11 @@ def build():
                 paint(hs, (np.abs(xx2 - px) < 1.5) & (yy2 >= py)
                       & (yy2 < py + hgt), C["snow"])
         add_sprite(name, hs)
-    add_sprite("tower", watchtower_ice())
+    add_sprite("tower", hd_tower(3 * TILE, 5 * TILE, STONE_W,
+                                 np.random.default_rng(601),
+                                 fire=(C["warm"], C["warm_hot"]),
+                                 shadow_col=C["snow_deep"],
+                                 snow=C["snow_lt"]))
     add_sprite("gate", ice_gate())
 
     rows = (len(tiles) + COLS - 1) // COLS

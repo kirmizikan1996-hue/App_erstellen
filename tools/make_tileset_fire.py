@@ -26,8 +26,24 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from make_tileset_painted import (ALL, COLS, TILE, canvas, corner_field, fbm,
                                   grid, mottle, paint, shadow, toplight)
+from sprites_hd import hd_conifer, hd_dead_tree, hd_house, hd_tower
 
 rng = np.random.default_rng(4711)
+
+# Paletten fuer die HD-Sprites, dunkel -> hell
+BARK_F = [(18, 15, 14), (38, 31, 28), (62, 51, 45), (92, 76, 66)]
+BASALT4 = [(24, 21, 26), (52, 47, 52), (86, 80, 88), (128, 122, 130)]
+NEEDLE_F = [(20, 18, 22), (34, 30, 36), (52, 47, 54), (78, 72, 82),
+            (110, 104, 114)]
+HOUSE_F = {
+    "wall": (74, 68, 70), "wall_lt": (108, 100, 102),
+    "wall_dk": (34, 30, 32), "beam": (44, 38, 40),
+    "roof": (46, 40, 42), "roof_lt": (76, 66, 66),
+    "roof_dk": (26, 22, 24), "ridge": (96, 86, 84),
+    "stone": (70, 64, 66), "stone_lt": (104, 96, 98),
+    "glass": (120, 52, 20), "glow": (255, 198, 96),
+    "door": (28, 24, 26), "ground_shadow": (24, 20, 22),
+}
 
 F = {
     "ash": (62, 55, 52), "ash_lt": (98, 88, 82), "ash_dk": (38, 33, 32),
@@ -701,19 +717,31 @@ def build():
     add("signpost", iron_post())
     add("tall_grass", ash_tufts())
 
-    add_sprite("tree_a", dead_tree(0))
-    add_sprite("tree_b", dead_tree(1))
-    add_sprite("tree_c", dead_tree(2))
-    add_sprite("pine_a", spire(0))
-    add_sprite("pine_b", spire(1))
+    # HD-Sprites, damit die Feuerzone nicht schlechter aussieht als Gras
+    # und Eis: verkohlte Baeume 4x4, Basaltnadeln 3x4.
+    for name, seed in (("tree_a", 1), ("tree_b", 2), ("tree_c", 3)):
+        add_sprite(name, hd_dead_tree(4 * TILE, BARK_F,
+                                      np.random.default_rng(300 + seed),
+                                      shadow_col=(24, 20, 22),
+                                      glow=F["ember"]))
+    for name, seed in (("pine_a", 1), ("pine_b", 2)):
+        add_sprite(name, hd_conifer(3 * TILE, 4 * TILE, NEEDLE_F, BARK_F,
+                                    np.random.default_rng(400 + seed),
+                                    shadow_col=(24, 20, 22), tiers=4))
     add_sprite("tent", demon_tent())
     add_sprite("totem", fire_totem())
     add_sprite("well", magma_well())
-    add_sprite("tower", watchtower())
+    add_sprite("tower", hd_tower(3 * TILE, 5 * TILE, BASALT4,
+                                 np.random.default_rng(601),
+                                 fire=(F["ember"], F["ember_hot"]),
+                                 shadow_col=(24, 20, 22)))
     add_sprite("gate", gate())
-    add_sprite("house_a", basalt_hut(0, 5))
-    add_sprite("house_b", basalt_hut(1, 5))
-    add_sprite("house_c", basalt_hut(2, 4))
+    for name, w, h, sd, rows in (("house_a", 8, 7, 501, 11),
+                                 ("house_b", 8, 7, 502, 13),
+                                 ("house_c", 6, 6, 503, 9)):
+        add_sprite(name, hd_house(w * TILE, h * TILE, HOUSE_F,
+                                  np.random.default_rng(sd),
+                                  shingle_rows=rows))
 
     rows = (len(tiles) + COLS - 1) // COLS
     sheet = np.zeros((rows * TILE, COLS * TILE, 4), dtype=np.uint8)

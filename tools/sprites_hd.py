@@ -244,6 +244,118 @@ def hd_boulder(S, stone, rng, shadow_col=(46, 58, 40), caps=None):
     return np.clip(img, 0, 255)
 
 
+def hd_dead_tree(S, bark, rng, shadow_col=(46, 58, 40), glow=None, snow=None):
+    """Kahler Baum: dicker Stamm, verzweigte Aeste, kein Laub.
+
+    glow: Farbe fuer Glut in den Rindenrissen (Feuerzone).
+    snow: Farbe fuer Schneeauflage auf den Astoberseiten (Eiszone).
+    """
+    img = canvas_px(S, S)
+    yy, xx = grid_of(img)
+    cast_shadow(img, S * 0.90, S * 0.55, S * 0.045, S * 0.26, shadow_col)
+
+    ty0, ty1 = S * 0.40, S * 0.92
+    flare = np.clip((yy - ty0) / (ty1 - ty0), 0, 1) ** 2.4
+    half = S * 0.035 + flare * S * 0.085
+    trunk = (yy > ty0) & (yy < ty1) & (np.abs(xx - S * 0.5) < half)
+    paint(img, trunk, bark[1])
+    t = (xx - (S * 0.5 - half)) / (2 * half + 1e-6)
+    paint(img, trunk & (t < 0.30), bark[2])
+    paint(img, trunk & (t < 0.13), bark[3])
+    paint(img, trunk & (t > 0.76), bark[0])
+
+    def limb(x0, y0, ang, ln, w, depth):
+        """Ast samt Verzweigungen, nach oben duenner werdend."""
+        pts = []
+        x, y, a = x0, y0, ang
+        for i in range(int(ln)):
+            a += rng.normal(0, 0.055)
+            x += np.cos(a)
+            y += np.sin(a)
+            ww = max(0.8, w * (1 - i / ln))
+            m = ((yy - y) ** 2 + (xx - x) ** 2) < ww * ww
+            paint(img, m, bark[1])
+            paint(img, m & (xx < x), bark[2])
+            pts.append((x, y, a, ww))
+        if depth > 0:
+            for _ in range(rng.integers(1, 3)):
+                px, py, pa, pw = pts[int(len(pts) * rng.uniform(0.35, 0.8))]
+                limb(px, py, pa + rng.choice([-1, 1]) * rng.uniform(0.4, 0.8),
+                     ln * rng.uniform(0.42, 0.62), pw * 0.72, depth - 1)
+
+    for k in range(6):
+        a = -np.pi / 2 + (k - 2.5) * 0.30 + rng.normal(0, 0.10)
+        limb(S * 0.5 + rng.normal(0, S * 0.02),
+             ty0 + rng.uniform(0, S * 0.10), a,
+             S * rng.uniform(0.20, 0.30), S * 0.028, 2)
+
+    mask = img[..., 3] > 0
+    for _ in range(int(S * 0.30)):                    # Rindenrisse
+        y = rng.uniform(ty0, ty1)
+        x = S * 0.5 + rng.normal(0, S * 0.03)
+        h = rng.uniform(S * 0.03, S * 0.09)
+        m = trunk & (np.abs(xx - x) < 1) & (yy > y) & (yy < y + h)
+        paint(img, m, glow if (glow and rng.random() < 0.45) else bark[0])
+    if snow:
+        up = mask & ~np.roll(mask, 1, 0)
+        paint(img, up, snow)
+    outline(img, mask, bark[0])
+    return np.clip(img, 0, 255)
+
+
+def hd_tower(W, H, stone, rng, fire=None, shadow_col=(46, 58, 40), snow=None):
+    """Wachturm: Steinschaft mit Lagen, Zinnenkranz, Feuer oben."""
+    img = canvas_px(W, H)
+    yy, xx = grid_of(img)
+    cast_shadow(img, H * 0.955, W * 0.56, H * 0.030, W * 0.42, shadow_col)
+
+    base = (yy > H * 0.78) & (yy < H * 0.96) & (np.abs(xx - W * 0.5) < W * 0.42)
+    paint(img, base, stone[1])
+    paint(img, base & (xx < W * 0.5), stone[2])
+    paint(img, base & (yy > H * 0.92), stone[0])
+
+    shaft = (yy > H * 0.24) & (yy <= H * 0.80) & (np.abs(xx - W * 0.5) < W * 0.30)
+    paint(img, shaft, stone[1])
+    paint(img, shaft & (xx < W * 0.5 - W * 0.06), stone[2])
+    paint(img, shaft & (xx < W * 0.5 - W * 0.17), stone[3])
+    paint(img, shaft & (xx > W * 0.5 + W * 0.19), stone[0])
+    for y in np.arange(H * 0.26, H * 0.80, H * 0.055):   # Steinlagen
+        paint(img, shaft & (np.abs(yy - y) < 1), stone[0])
+        for k in range(5):                                # Fugen versetzt
+            x = W * 0.20 + k * W * 0.15 + (W * 0.075 if int(y) % 2 else 0)
+            paint(img, shaft & (np.abs(yy - y - H * 0.027) < H * 0.026)
+                  & (np.abs(xx - x) < 1), stone[0])
+
+    crown = (yy > H * 0.14) & (yy <= H * 0.26) & (np.abs(xx - W * 0.5) < W * 0.40)
+    paint(img, crown, stone[2])
+    paint(img, crown & (xx > W * 0.5 + W * 0.24), stone[0])
+    for k in range(5):                                    # Zinnen
+        x = W * 0.5 + (k - 2) * W * 0.17
+        m = (yy > H * 0.06) & (yy <= H * 0.16) & (np.abs(xx - x) < W * 0.065)
+        paint(img, m, stone[2])
+        paint(img, m & (xx < x), stone[3])
+
+    paint(img, (yy > H * 0.58) & (yy < H * 0.80)
+          & (np.abs(xx - W * 0.5) < W * 0.09), stone[0])   # Tuer
+    for y in (H * 0.36, H * 0.48):                         # Sehschlitze
+        paint(img, (np.abs(yy - y) < H * 0.030)
+              & (np.abs(xx - W * 0.5) < W * 0.035), stone[0])
+        if fire:
+            paint(img, (np.abs(yy - y) < H * 0.020)
+                  & (np.abs(xx - W * 0.5) < W * 0.022), fire[0])
+    if fire:                                               # Feuerkorb oben
+        f = (((yy - H * 0.075) / (H * 0.055)) ** 2
+             + ((xx - W * 0.5) / (W * 0.13)) ** 2) < 1
+        paint(img, f, fire[0])
+        paint(img, (((yy - H * 0.055) / (H * 0.032)) ** 2
+                    + ((xx - W * 0.5) / (W * 0.075)) ** 2) < 1, fire[1])
+    if snow:
+        mask = img[..., 3] > 0
+        paint(img, mask & ~np.roll(mask, 1, 0), snow)
+    outline(img, img[..., 3] > 0, stone[0])
+    return np.clip(img, 0, 255)
+
+
 # ------------------------------------------------------------------ Haus ----
 
 def hd_house(W, H, pal, rng, shingle_rows=11):
