@@ -33,8 +33,24 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from make_tileset_painted import (ALL, COLS, TILE, canvas, corner_field, fbm,
                                   grid, mottle, paint, toplight)
+from sprites_hd import hd_boulder, hd_conifer, hd_house
 
 rng = np.random.default_rng(1812)
+
+# Winterpaletten fuer die HD-Sprites, dunkel -> hell
+NEEDLE_W = [(18, 38, 34), (28, 56, 46), (40, 76, 58), (56, 98, 72),
+            (78, 122, 90)]
+BARK_W = [(34, 26, 20), (58, 42, 28), (84, 62, 42), (112, 86, 58)]
+STONE_W = [(46, 52, 66), (86, 94, 112), (124, 132, 150), (168, 176, 192)]
+HOUSE_W = {
+    "wall": (118, 88, 60), "wall_lt": (150, 116, 82),
+    "wall_dk": (62, 46, 32), "beam": (56, 42, 30),
+    "roof": (62, 54, 48), "roof_lt": (92, 82, 74),
+    "roof_dk": (38, 32, 30), "ridge": (108, 98, 90),
+    "stone": (96, 104, 120), "stone_lt": (140, 148, 164),
+    "glass": (74, 54, 34), "glow": (255, 196, 108),
+    "door": (54, 38, 26), "ground_shadow": (146, 164, 196),
+}
 
 C = {
     "snow": (226, 234, 244), "snow_lt": (245, 249, 253),
@@ -962,19 +978,52 @@ def build():
     add("tall_grass", snow_tufts())
     add("hummock", ice_hummock())
 
-    add_sprite("tree_a", snow_fir(0))
-    add_sprite("tree_b", snow_fir(1))
-    add_sprite("tree_c", snow_fir(2))
-    add_sprite("pine_a", frost_pine(0))
-    add_sprite("pine_b", frost_pine(1))
+    # HD-Sprites: Wintertannen 4x5 statt 2x2. Dieselbe Form wie im Grasland,
+    # nur mit Schneeauflage auf den Zweigenden.
+    for name, seed in (("tree_a", 1), ("tree_b", 2), ("tree_c", 3)):
+        add_sprite(name, hd_conifer(4 * TILE, 5 * TILE, NEEDLE_W, BARK_W,
+                                    np.random.default_rng(300 + seed),
+                                    shadow_col=C["snow_deep"], tiers=5,
+                                    snow=C["snow_lt"]))
+    for name, seed in (("pine_a", 1), ("pine_b", 2)):
+        add_sprite(name, hd_conifer(3 * TILE, 4 * TILE, NEEDLE_W, BARK_W,
+                                    np.random.default_rng(400 + seed),
+                                    shadow_col=C["snow_deep"], tiers=4,
+                                    snow=C["snow_lt"]))
     add_sprite("tent", hide_tent())
     add_sprite("totem", rune_stone())
     add_sprite("well", ice_hole())
     add_sprite("hotspring", hot_spring())
     add_sprite("wreck", frozen_wreck())
-    add_sprite("house_a", longhouse(0, 5))
-    add_sprite("house_b", longhouse(1, 5))
-    add_sprite("house_c", longhouse(2, 4))
+    for name, w, h, sd, rows in (("house_a", 8, 7, 501, 11),
+                                 ("house_b", 8, 7, 502, 13),
+                                 ("house_c", 6, 6, 503, 9)):
+        hs = hd_house(w * TILE, h * TILE, HOUSE_W,
+                      np.random.default_rng(sd), shingle_rows=rows)
+        # Schneeauflage aufs Dach — mit WELLIGER Unterkante und eigener
+        # Schattierung. Eine gerade abgeschnittene weisse Flaeche sieht aus
+        # wie eine Platte, nicht wie liegender Schnee.
+        H2, W2 = h * TILE, w * TILE
+        yy2, xx2 = grid(hs)
+        r2 = np.random.default_rng(sd + 40)
+        edge = H2 * 0.30 + (fbm((H2, W2), 5, 2, r2) - 0.5) * H2 * 0.10
+        snowm = (hs[..., 3] > 0) & (yy2 < edge)
+        paint(hs, snowm, C["snow_md"])
+        paint(hs, snowm & (yy2 < edge - H2 * 0.045), C["snow"])
+        paint(hs, snowm & (yy2 < H2 * 0.14) & (xx2 < W2 * 0.62), C["snow_lt"])
+        # Schattenkante, wo der Schnee auf die Schindeln trifft
+        below = np.roll(snowm, -2, 0) & ~snowm & (hs[..., 3] > 0)
+        paint(hs, below, HOUSE_W["roof_dk"])
+        # abrutschende Schneenasen an der Traufe
+        for _ in range(int(W2 * 0.10)):
+            px = int(r2.uniform(W2 * 0.06, W2 * 0.94))
+            col = np.where(snowm[:, px])[0]
+            if col.size:
+                py = int(col.max())
+                hgt = int(r2.uniform(2, H2 * 0.035))
+                paint(hs, (np.abs(xx2 - px) < 1.5) & (yy2 >= py)
+                      & (yy2 < py + hgt), C["snow"])
+        add_sprite(name, hs)
     add_sprite("tower", watchtower_ice())
     add_sprite("gate", ice_gate())
 

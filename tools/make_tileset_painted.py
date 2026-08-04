@@ -16,9 +16,31 @@ Erzeugt: assets/tilesets/painted/tileset.png + tileset_meta.json
 """
 import json
 import os
+import sys
 
 import numpy as np
 from PIL import Image
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from sprites_hd import hd_boulder, hd_conifer, hd_house, hd_tree
+
+# Wertstufen fuer die HD-Sprites: dunkel -> hell. Sechs Stufen beim Laub,
+# vier bei Rinde und Stein — daran haengt das Volumen.
+LEAF6 = [(26, 46, 30), (38, 68, 40), (54, 92, 48), (78, 122, 58),
+         (108, 154, 70), (142, 184, 88)]
+NEEDLE5 = [(22, 44, 34), (34, 66, 46), (48, 88, 56), (68, 114, 68),
+           (96, 146, 84)]
+BARK4 = [(40, 30, 22), (66, 48, 32), (96, 72, 48), (128, 100, 68)]
+STONE4 = [(58, 56, 60), (104, 100, 104), (140, 136, 140), (178, 174, 176)]
+HOUSE_PAL = {
+    "wall": (196, 168, 128), "wall_lt": (224, 200, 164),
+    "wall_dk": (108, 86, 62), "beam": (104, 76, 48),
+    "roof": (150, 66, 48), "roof_lt": (186, 92, 64),
+    "roof_dk": (104, 42, 32), "ridge": (212, 118, 82),
+    "stone": (128, 122, 114), "stone_lt": (168, 162, 152),
+    "glass": (92, 74, 52), "glow": (255, 206, 124),
+    "door": (110, 76, 46), "ground_shadow": (46, 58, 40),
+}
 
 TILE = 32
 COLS = 16
@@ -776,17 +798,23 @@ def build():
     add("signpost", signpost())
     add("tall_grass", tall_grass())
 
-    add_sprite("tree_a", tree_big(0))
-    add_sprite("tree_b", tree_big(1))
-    add_sprite("tree_c", tree_big(2))
-    add_sprite("pine_a", pine(0))
-    add_sprite("pine_b", pine(1))
+    # HD-Sprites: Baeume 4x4 statt 2x2, Haeuser 8x7 statt 5x4.
+    # 64 px reichen fuer keinen Wurzelanlauf und keine sechs Gruenstufen.
+    for name, seed in (("tree_a", 1), ("tree_b", 2), ("tree_c", 3)):
+        add_sprite(name, hd_tree(4 * TILE, LEAF6, BARK4,
+                                 np.random.default_rng(300 + seed)))
+    for name, seed in (("pine_a", 1), ("pine_b", 2)):
+        add_sprite(name, hd_conifer(3 * TILE, 4 * TILE, NEEDLE5, BARK4,
+                                    np.random.default_rng(400 + seed)))
     add_sprite("tent", tent())
     add_sprite("totem", totem())
     add_sprite("well", well())
-    add_sprite("house_a", house(0, 5))
-    add_sprite("house_b", house(1, 5))
-    add_sprite("house_c", house(2, 4))
+    add_sprite("house_a", hd_house(8 * TILE, 7 * TILE, HOUSE_PAL,
+                                   np.random.default_rng(501)))
+    add_sprite("house_b", hd_house(8 * TILE, 7 * TILE, HOUSE_PAL,
+                                   np.random.default_rng(502), shingle_rows=13))
+    add_sprite("house_c", hd_house(6 * TILE, 6 * TILE, HOUSE_PAL,
+                                   np.random.default_rng(503), shingle_rows=9))
 
     rows = (len(tiles) + COLS - 1) // COLS
     sheet = np.zeros((rows * TILE, COLS * TILE, 4), dtype=np.uint8)

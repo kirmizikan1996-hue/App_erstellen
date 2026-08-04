@@ -672,6 +672,56 @@ Punkte — die Ebene sah aus wie ein Polka-Dot-Muster. Rauheit und Noise-Skala
 
 ---
 
+## 5q. Warum unsere Sprites schlechter aussahen als Profi-Tilesets
+
+Gemessen an einem professionellen Referenz-Screenshot:
+
+| | Referenz | unseres (alt) | Faktor |
+|---|---|---|---|
+| Baumkrone | ~150 px | 64 px | **5,5× Pixelfläche** |
+| Haus | ~400 px | 160 px | **6,2× Pixelfläche** |
+
+**Auf 64 × 64 passt kein Wurzelanlauf, keine Rindenstruktur und keine sechs
+Grünstufen.** Das war der größte Einzelfaktor — und der einzige, den man
+ohne Pixel-Artist schließen kann.
+
+`tools/sprites_hd.py` bündelt die vier Techniken, an denen der Rest hängt:
+
+1. **Fünf bis sechs Wertstufen** statt drei → Volumen.
+2. **Eine Lichtrichtung für alles** (oben links) samt Schlagschatten nach
+   unten rechts. Uneinheitliches Licht lässt eine Szene sofort
+   zusammengewürfelt wirken.
+3. **Aufgebrochene Silhouette**: Blattdupfen auf der Kontur. Eine glatte
+   Kante liest sich als Blob, eine ausgefranste als Laub.
+4. **Dunkle Außenkante**, die die Form zusammenbindet.
+
+Neue Größen: Bäume **4×4 Tiles (128 px)**, Häuser **8×7 (256×224 px)**,
+Nadelbäume 3×4 bis 4×5. Die Palette wird übergeben, damit Gras-, Feuer- und
+Eiszone dieselben Formen mit eigenen Farben nutzen.
+
+### Zwei Fallen bei der Umstellung
+
+* **Kugelig schattierte Ballen bleiben als Kreise sichtbar.** Die Krone sah
+  aus wie ein Haufen Murmeln. Nötig ist ein zweiter Durchgang mit kleinen
+  Blattbüscheln *im Kroneninneren*, der die Kreise aufbricht.
+* **Schnee auf dem Dach als gerade abgeschnittene weiße Fläche** wirkt wie
+  eine Platte. Er braucht eine wellige Unterkante, eigene Schattierung, eine
+  Schattenlinie zu den Schindeln und ein paar abrutschende Nasen an der
+  Traufe.
+
+### Was damit NICHT geschlossen ist
+
+Der Rest des Abstands ist **Handwerk**: Die Referenz hat ein Pixel-Artist
+gezeichnet, mit Entscheidungen pro Pixel. Unsere Sprites zeichnet Python aus
+Kreisen und Rauschen — das hat eine Decke. Dazu kommt, dass professionelle
+Szenen **von Hand komponiert** sind (Heukarren, Bank, Fackel neben der Tür)
+und Objekte **frei platziert und überlappend** liegen statt rasterfest.
+
+Der Weg dorthin bleibt ein gekauftes Tileset. Die Architektur nimmt es:
+Tilesets sind austauschbare Skins mit festen Tile-Namen.
+
+---
+
 ## 6. Layout-Regeln fürs Gameplay
 
 Der Spieler **läuft** auf dieser Karte — das Layout muss das hergeben:
