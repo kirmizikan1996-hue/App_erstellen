@@ -640,6 +640,38 @@ Täler müssen sich **zur Mündung weiten**, sonst wirken sie wie Röhren.
 
 ---
 
+## 5p. Vergrößern auf 384 Tiles — was dabei kippt
+
+Standardgröße des Fjords ist jetzt **384 × 384 Tiles (12288 px)** mit sechs
+Tälern und 110 Lagern. Beim Hochskalieren kippten drei Dinge:
+
+**Der Vorschau-Renderer.** 384 Tiles à 32 px sind 12288 px und ~600 MB
+Leinwand. `render_tilemap.py --tilepx 10` verkleinert jedes Tile *vor* dem
+Zusammensetzen — 3840 px Vorschau in Sekunden statt Minuten. Für 1:1-Details
+weiter ohne `--tilepx` rendern.
+
+**Die Lagerdichte.** `N²/820` ergab 179 Lager; im hellen Schneefeld wurde die
+Küstenebene dadurch ein zusammenhängender grauer Fleck. Graue Flächen fallen
+auf Schnee viel stärker auf als auf Gras — für helle Themen also **dünner
+streuen** (hier `N²/1350`) und den Mindestabstand erhöhen.
+
+**Die Reihenfolge der Typregeln.** Mit sechs Tälern gibt es sechs Rippenwege;
+plötzlich lag fast jedes Lager „nah am Weg" und 114 von 179 wurden Banditen.
+Zwei Lehren:
+
+* **Ortsspezifische Regeln zuerst**, generische zuletzt. Eine Regel, die auf
+  einer *Dichte* beruht (Wegnähe), kippt beim Skalieren, weil sich die Dichte
+  mitändert — sie gehört ans Ende der Kette.
+* Besser noch: **das Tal bestimmt sein Thema.** Jeder Kessel bekommt einen
+  festen Gegnertyp (`VALLEY_THEME`), damit ist jedes Tal ein eigenes Revier
+  und der Spieler weiß nach dem ersten Besuch, was ihn dort erwartet.
+
+Und noch einmal Formen: Mit `rough=0.3` wurden alle Lager gleich runde
+Punkte — die Ebene sah aus wie ein Polka-Dot-Muster. Rauheit und Noise-Skala
+**pro Lager** würfeln.
+
+---
+
 ## 6. Layout-Regeln fürs Gameplay
 
 Der Spieler **läuft** auf dieser Karte — das Layout muss das hergeben:

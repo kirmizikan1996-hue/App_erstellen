@@ -25,13 +25,19 @@ def load_tileset(map_path, ts):
 
 
 def render(map_path, out=None, scale=1, show_collision=False, show_grid=False,
-           only=None, transparent=False):
+           only=None, transparent=False, tilepx=None):
     m = json.load(open(map_path))
     tw, th = m["tilewidth"], m["tileheight"]
-    W, H = m["width"] * tw, m["height"] * th
     tiles = {}
     for ts in m["tilesets"]:
         tiles.update(load_tileset(map_path, ts))
+    # tilepx verkleinert JEDES Tile vor dem Zusammensetzen. Noetig fuer grosse
+    # Karten: 384 Tiles a 32 px waeren 12288 px und ~600 MB Leinwand.
+    if tilepx and tilepx != tw:
+        tiles = {g: im.resize((tilepx, tilepx), Image.BOX)
+                 for g, im in tiles.items()}
+        tw = th = tilepx
+    W, H = m["width"] * tw, m["height"] * th
 
     bg = (0, 0, 0, 0) if transparent else (0, 0, 0, 255)
     canvas = Image.new("RGBA", (W, H), bg)
@@ -80,6 +86,9 @@ if __name__ == "__main__":
                    help="nur diese Layer rendern, z.B. ground oder decoration,overlay")
     p.add_argument("--transparent", action="store_true",
                    help="Hintergrund transparent lassen (fuer Sprite-Ebenen)")
+    p.add_argument("--tilepx", type=int, default=None,
+                   help="Tiles auf diese Kantenlaenge verkleinern (grosse Karten)")
     a = p.parse_args()
     only = set(a.layers.split(",")) if a.layers else None
-    render(a.map, a.out, a.scale, a.collision, a.grid, only, a.transparent)
+    render(a.map, a.out, a.scale, a.collision, a.grid, only, a.transparent,
+           a.tilepx)

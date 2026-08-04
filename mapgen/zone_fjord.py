@@ -95,8 +95,13 @@ def compose(N, rng):
     # --- Vier Taeler schneiden ins Massiv ----------------------------------
     # Jedes endet in einem Kessel. Das sind die "Rippen".
     valleys = []
-    vx = [N * 0.16, N * 0.39, N * 0.62, N * 0.86]
-    depth = [0.115, 0.155, 0.125, 0.075]          # wie weit ins Massiv
+    # Anzahl mit der Kartenbreite skalieren: bei 384 Tiles laegen vier
+    # Taeler so weit auseinander, dass dazwischen nur leere Ebene bleibt.
+    n_val = max(4, int(N / 64))
+    vx = [N * (0.13 + i * (0.74 / max(1, n_val - 1))) for i in range(n_val)]
+    base_depth = [0.115, 0.155, 0.125, 0.075]
+    depth = [base_depth[i % 4] + (0.012 if i % 2 else -0.008)
+             for i in range(n_val)]
     for i, (bx, dp) in enumerate(zip(vx, depth)):
         top = (bx + rng.normal(0, N * 0.015), N * dp)
         bot = (bx, N * 0.34)
@@ -110,7 +115,7 @@ def compose(N, rng):
             if len(sub) >= 2:
                 lay(terr, dist_to_path(N, sub) <= N * w, GRASS)
         # Kessel am oberen Ende
-        cr = N * (0.082 if i in (0, 3) else 0.070)
+        cr = N * (0.082 if i in (0, n_val - 1) else 0.070)
         lay(terr, blob_field(N, top[0], top[1], cr, rng, rough=0.22) < 0, GRASS)
         valleys.append({"pts": pts, "head": top, "r": cr})
     plan["valleys"] = valleys
@@ -139,9 +144,11 @@ def compose(N, rng):
         lay(terr, dist_to_path(N, [p0, p1]) <= 1.6, WATER)   # Spalte
     plan["crevasse_head"] = cf
 
-    # --- Kessel 4: Thronkessel, der Boss -----------------------------------
-    bh = valleys[3]["head"]
-    br = valleys[3]["r"] * 0.52
+    # --- Letzter Kessel: Thronkessel, der Boss -----------------------------
+    # bewusst valleys[-1], nicht [3]: bei sechs Taelern lag der Boss sonst
+    # mitten in der Reihe statt am Ende der Zone
+    bh = valleys[-1]["head"]
+    br = valleys[-1]["r"] * 0.52
     lay(terr, blob_field(N, bh[0], bh[1], br * 1.7, rng, 0.18) < 0, GRASS)
     lay(terr, blob_field(N, bh[0], bh[1], br * 1.25, rng, 0.2) < 0, WATER)
     lay(terr, blob_field(N, bh[0], bh[1], br, rng, 0.15) < 0, ARENA)
@@ -223,6 +230,33 @@ def compose(N, rng):
     # --- Zonenausgaenge an beiden Enden des Rueckgrats ---------------------
     plan["gates"] = [(6.0, spine[1][1]), (N - 9.0, spine[-2][1])]
 
+    # --- Der Fjord braucht Inhalt ------------------------------------------
+    # 30 % der Karte waren eine leere helle Flaeche. Presseisruecken geben
+    # ihr Struktur, das Wrack eine Landmarke, die Fischerloecher einen Grund
+    # hinauszugehen.
+    ridges = []
+    for k in range(7):
+        y0 = N * (0.70 + rng.random() * 0.27)
+        x0 = rng.random() * N * 0.8
+        ln = N * (0.10 + rng.random() * 0.16)
+        a = rng.normal(0, 0.35)
+        pts = [(x0 + math.cos(a) * t, y0 + math.sin(a) * t)
+               for t in np.linspace(0, ln, 12)]
+        ridges.append(pts)
+    plan["ridges"] = ridges
+
+    wx = N * (0.58 + rng.random() * 0.20)
+    wy = N * (0.80 + rng.random() * 0.10)
+    plan["wreck"] = (wx, wy) if terr[int(wy), int(wx)] == SAND else None
+
+    holes = []
+    for k in range(9):
+        hx2 = N * (0.14 + rng.random() * 0.74)
+        hy2 = N * (0.70 + rng.random() * 0.24)
+        if terr[int(hy2), int(hx2)] == SAND:
+            holes.append((hx2, hy2))
+    plan["holes"] = holes
+
     return terr, plan, road_d
 
 
@@ -252,26 +286,41 @@ def place_camps(N, terr, road_d, rng, plan, n_max):
         camps.append({"x": int(x), "y": int(y), "r": round(r, 1),
                       "tier": "kern" if deep else "rand",
                       "type": camp_type(terr, road_d, plan, x, y, space, N, rng)})
-        clear = r * (1.75 if deep else 2.9)
+        # groesserer Mindestabstand als in den anderen Zonen: eng gesetzte
+        # Lager verschmelzen im Schneefeld zu grauen Amoeben
+        clear = r * (2.3 if deep else 3.4)
         d[(xx - x) ** 2 + (yy - y) ** 2 < clear * clear] = 0
     return camps
 
 
+# Thema je Tal, in der Reihenfolge der Kessel von West nach Ost.
+# Index 1 sind die heissen Quellen, Index 2 das Spaltenfeld.
+VALLEY_THEME = ["bestien", "spinnen", "untote", "ruine", "bestien", "untote"]
+
+
 def camp_type(terr, road_d, plan, x, y, space, N, rng):
-    """Typ folgt dem Ort — dieselbe Regel wie in der Caldera."""
-    if road_d[y, x] < N * 0.055:
-        return "banditen"                     # ueberfallen die Kuestenstrasse
+    """Typ folgt dem Ort.
+
+    Reihenfolge ist entscheidend: ORTSSPEZIFISCHE Regeln zuerst. Stand
+    "nah am Weg" oben, ueberstimmte es bei dichtem Wegenetz alles andere —
+    bei sechs Taelern wurden so 114 von 179 Lagern zu Banditen.
+    """
+    # Innerhalb eines Tals bestimmt das TAL das Thema — so ist jedes Tal ein
+    # eigenes Revier mit eigenem Gegnertyp, und der Spieler weiss nach dem
+    # ersten Besuch, was ihn dort erwartet.
+    heads = [v["head"] for v in plan["valleys"]]
+    dist, vi = min((math.hypot(x - hx, y - hy), i)
+                   for i, (hx, hy) in enumerate(heads))
+    if dist < N * 0.14:
+        return VALLEY_THEME[vi % len(VALLEY_THEME)]
+    # Draussen entscheidet die Lage
     if y > plan["shore_y"]:
         return "bestien"                      # Robben/Baeren auf dem Packeis
-    hx, hy = plan["crevasse_head"]
-    if math.hypot(x - hx, y - hy) < N * 0.20:
-        return "untote"                       # im und um das Spaltenfeld
-    # Am Fuss des Massivs, wo alte Bauten im Eis stecken. Ueber die
-    # Fels-Dichte gemessen griff die Regel nie: die Lagerplatzierung sucht
-    # offene Flaechen und meidet Fels systematisch.
-    if y < plan["land_y"] + N * 0.075:
-        return "ruine"
-    if space < N * 0.058:
+    if road_d[y, x] < N * 0.030:
+        return "banditen"                     # ueberfallen die Kuestenstrasse
+    if y < plan["land_y"] + N * 0.05:
+        return "ruine"                        # am Fuss des Massivs
+    if space < N * 0.045:
         return "spinnen"
     return "bestien"
 
@@ -294,8 +343,11 @@ def main():
     terr, plan, road_d = compose(N, rng)
 
     print("[2/4] Lager setzen ...")
+    # duenner als in den anderen Zonen: im hellen Schneefeld fallen die
+    # grauen Lagerflaechen viel staerker auf, bei N^2/820 wurde die ganze
+    # Kuestenebene ein zusammenhaengender grauer Fleck
     camps = place_camps(N, terr, road_d, rng, plan,
-                        n_max=max(20, int(N * N / 820)))
+                        n_max=max(20, int(N * N / 1350)))
     # Banditen am Rueckgrat: die Greedy-Suche meidet Wege, also eigener Lauf
     taken = [(c["x"], c["y"], c["r"]) for c in camps]
     for pts in (plan["spine"],):
@@ -320,7 +372,12 @@ def main():
     for c in camps:
         if not CAMP_TYPES[c["type"]]["floor"]:
             continue
-        f = blob_field(N, c["x"], c["y"], c["r"], rng, rough=0.30)
+        # kraeftig unregelmaessige Kante und wechselnde Rauheit: mit
+        # rough=0.3 wurden alle Lager zu gleich runden Punkten und die
+        # Schneeebene sah aus wie ein Polka-Dot-Muster
+        rough = 0.45 + rng.random() * 0.35
+        f = blob_field(N, c["x"], c["y"], c["r"], rng, rough=rough,
+                       cells=int(rng.integers(3, 6)))
         lay(terr, (f < 1.5) & np.isin(terr, (GRASS, SAND)), DIRT)
         lay(terr, (f < 0) & np.isin(terr, (GRASS, SAND, DIRT)), ARENA)
 
@@ -452,6 +509,32 @@ def main():
             deco[y, x] = (ids["fence_h"] if spec["ring"] == "fence"
                           else ids["boulder"])
             block[y, x] = True
+
+    # --- Fjord ausstatten ---------------------------------------------------
+    if has("wreck") and plan["wreck"]:
+        wx2, wy2 = plan["wreck"]
+        s = sprites["wreck"]
+        put("wreck", int(wx2) - s["w"] // 2, int(wy2) - s["h"] // 2)
+    if has("well"):
+        for (hx2, hy2) in plan["holes"]:
+            if free(int(hx2) - 1, int(hy2) - 1, 2, 2):
+                put("well", int(hx2) - 1, int(hy2) - 1)
+    hum = ids.get("hummock", ids["boulder"])
+    for pts in plan["ridges"]:
+        for i in range(len(pts) - 1):
+            for t in np.linspace(0, 1, 7):
+                x = int(pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t
+                        + rng.normal(0, 1.2))
+                y = int(pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t
+                        + rng.normal(0, 1.0))
+                if not (0 <= x < N and 0 <= y < N):
+                    continue
+                if terr[y, x] == SAND and not over[y, x] and not deco[y, x]:
+                    deco[y, x] = hum
+    for _ in range(int(N * N * 0.004)):        # verstreute Schollenhuegel
+        x, y = int(rng.integers(N)), int(rng.integers(N))
+        if terr[y, x] == SAND and not over[y, x] and not deco[y, x]:
+            deco[y, x] = hum
 
     # Wald am Fuss des Massivs, Deko in Nestern
     tree_names = ["tree_a", "tree_b", "tree_c", "pine_a", "pine_b"]

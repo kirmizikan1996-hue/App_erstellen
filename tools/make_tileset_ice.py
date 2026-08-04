@@ -697,6 +697,83 @@ def hot_spring():
     return img
 
 
+def ice_hummock():
+    """"hummock": Presseishuegel — Struktur fuer die leere Fjordflaeche."""
+    img = canvas()
+    yy, xx = grid(img)
+    for _ in range(3):
+        x, y = rng.integers(6, TILE - 6), rng.integers(8, TILE - 6)
+        w, h = 5 + rng.random() * 4, 3 + rng.random() * 2
+        m = (np.abs(xx - x) / w) ** 2 + (np.abs(yy - y) / h) ** 2 < 1
+        paint(img, m, C["ice"])
+        paint(img, m & (yy < y), C["ice_lt"])
+        paint(img, m & (yy > y + h * 0.5), C["ice_dk"])
+        top = m & ~np.roll(m, 1, 0)
+        img[..., :3][top] = (255, 255, 255)
+        img[..., 3][top] = 255
+    return img
+
+
+def frozen_wreck():
+    """"wreck": im Packeis eingefrorenes Schiff.
+
+    Die grosse Landmarke auf dem Fjord. Von oben gesehen: Rumpf, Deck,
+    gebrochener Mast, Schneewehen — und Eisrisse, die vom Rumpf ausgehen.
+    """
+    img = canvas(4, 3)                       # 128 x 96
+    yy, xx = grid(img)
+    cy, cx = 50, 64
+    # Eisrisse rundum: das Schiff hat das Eis aufgebrochen
+    for k in range(14):
+        a = k * 2 * np.pi / 14 + rng.random() * 0.2
+        for t in range(10, 46):
+            px, py = int(cx + np.cos(a) * t * 1.3), int(cy + np.sin(a) * t * 0.8)
+            if 0 <= px < 128 and 0 <= py < 96:
+                img[py, px, :3] = C["ice_dk"]
+                img[py, px, 3] = 255
+    # Rumpf: laengliches Spitzoval, leicht gedreht
+    ang = 0.28
+    rx = (xx - cx) * np.cos(ang) + (yy - cy) * np.sin(ang)
+    ry = -(xx - cx) * np.sin(ang) + (yy - cy) * np.cos(ang)
+    hull = (rx / 44.0) ** 2 + (ry / 15.0) ** 2 < 1
+    mottle(img, hull, C["wood_dk"], C["wood"], cells=3)
+    paint(img, hull & (ry < -6), (146, 110, 74))          # Lichtseite
+    paint(img, hull & (ry > 8), (54, 38, 24))             # Schattenseite
+    # Deckplanken laengs
+    for k in range(-12, 13, 4):
+        paint(img, hull & (np.abs(ry - k) < 1), (58, 42, 28))
+    # Reling
+    edge = hull & ~np.roll(hull, 1, 0)
+    img[..., :3][edge] = C["wood_lt"]
+    img[..., 3][edge] = 255
+    # aufgebrochener Laderaum
+    hold = (rx / 14.0) ** 2 + (ry / 7.0) ** 2 < 1
+    paint(img, hold, (22, 20, 26))
+    paint(img, hold & (ry < -2), (44, 40, 48))
+    # gebrochener Mast, quer ueber das Deck gefallen
+    for t in range(-38, 20):
+        px = int(cx + t * 0.86 + 6)
+        py = int(cy + t * 0.5 - 20)
+        if 0 <= px < 128 and 0 <= py < 96:
+            img[py:py + 3, px, :3] = C["wood_dk"]
+            img[py:py + 3, px, 3] = 255
+            img[py, px, :3] = C["wood_lt"]
+    # Schneewehen auf dem Deck
+    drift = hull & (fbm((96, 128), 5, 2, rng) > 0.56)
+    paint(img, drift, C["snow"])
+    paint(img, drift & (yy < cy), C["snow_lt"])
+    cap(img, hull)
+    for _ in range(8):                                     # Eiszapfen an der Bordwand
+        x = int(rng.integers(24, 104))
+        col = np.where(hull[:, x])[0]
+        if col.size:
+            y = int(col.max())
+            h = int(rng.integers(2, 6))
+            img[y:y + h, x, :3] = C["ice_lt"]
+            img[y:y + h, x, 3] = 255
+    return img
+
+
 def longhouse(seed=0, w_tiles=5):
     """"house": Langhaus mit steilem Schneedach und warmen Fenstern.
 
@@ -883,6 +960,7 @@ def build():
     add("lantern", witchlight())
     add("signpost", signpost_ice())
     add("tall_grass", snow_tufts())
+    add("hummock", ice_hummock())
 
     add_sprite("tree_a", snow_fir(0))
     add_sprite("tree_b", snow_fir(1))
@@ -893,6 +971,7 @@ def build():
     add_sprite("totem", rune_stone())
     add_sprite("well", ice_hole())
     add_sprite("hotspring", hot_spring())
+    add_sprite("wreck", frozen_wreck())
     add_sprite("house_a", longhouse(0, 5))
     add_sprite("house_b", longhouse(1, 5))
     add_sprite("house_c", longhouse(2, 4))
