@@ -1,0 +1,624 @@
+{
+  "name": "zone_fjord",
+  "width_tiles": 256,
+  "height_tiles": 256,
+  "tile_size": 32,
+  "camps": [
+    {
+      "x": 129,
+      "y": 97,
+      "r": 7.8,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 127,
+      "y": 111,
+      "r": 5.1,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 0,
+      "y": 98,
+      "r": 6.8,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 0,
+      "y": 110,
+      "r": 5.1,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 127,
+      "y": 120,
+      "r": 4.4,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 255,
+      "y": 98,
+      "r": 7.0,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 193,
+      "y": 116,
+      "r": 4.6,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 255,
+      "y": 111,
+      "r": 6.6,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 194,
+      "y": 107,
+      "r": 6.5,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 194,
+      "y": 95,
+      "r": 7.2,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 5,
+      "y": 119,
+      "r": 6.4,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 123,
+      "y": 127,
+      "r": 5.1,
+      "tier": "rand",
+      "type": "bestien"
+    },
+    {
+      "x": 59,
+      "y": 91,
+      "r": 4.7,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 68,
+      "y": 91,
+      "r": 7.1,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 139,
+      "y": 87,
+      "r": 7.2,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 186,
+      "y": 122,
+      "r": 7.5,
+      "tier": "rand",
+      "type": "bestien"
+    },
+    {
+      "x": 118,
+      "y": 108,
+      "r": 6.1,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 136,
+      "y": 109,
+      "r": 4.6,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 135,
+      "y": 117,
+      "r": 6.9,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 120,
+      "y": 86,
+      "r": 5.8,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 246,
+      "y": 89,
+      "r": 6.1,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 9,
+      "y": 90,
+      "r": 7.1,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 9,
+      "y": 106,
+      "r": 5.2,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 187,
+      "y": 84,
+      "r": 7.1,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 54,
+      "y": 98,
+      "r": 7.7,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 246,
+      "y": 119,
+      "r": 4.9,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 142,
+      "y": 101,
+      "r": 5.5,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 115,
+      "y": 97,
+      "r": 6.7,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 13,
+      "y": 127,
+      "r": 6.2,
+      "tier": "rand",
+      "type": "bestien"
+    },
+    {
+      "x": 53,
+      "y": 84,
+      "r": 7.5,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 201,
+      "y": 84,
+      "r": 4.6,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 244,
+      "y": 104,
+      "r": 7.0,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 137,
+      "y": 133,
+      "r": 4.7,
+      "tier": "rand",
+      "type": "bestien"
+    },
+    {
+      "x": 205,
+      "y": 110,
+      "r": 7.8,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 254,
+      "y": 123,
+      "r": 4.6,
+      "tier": "rand",
+      "type": "bestien"
+    },
+    {
+      "x": 129,
+      "y": 79,
+      "r": 5.5,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 77,
+      "y": 82,
+      "r": 4.4,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 255,
+      "y": 83,
+      "r": 7.5,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 75,
+      "y": 102,
+      "r": 7.6,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 50,
+      "y": 111,
+      "r": 7.0,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 111,
+      "y": 117,
+      "r": 7.1,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 182,
+      "y": 100,
+      "r": 5.9,
+      "tier": "kern",
+      "type": "bestien"
+    },
+    {
+      "x": 148,
+      "y": 78,
+      "r": 6.1,
+      "tier": "kern",
+      "type": "untote"
+    },
+    {
+      "x": 238,
+      "y": 82,
+      "r": 7.1,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 207,
+      "y": 128,
+      "r": 6.0,
+      "tier": "rand",
+      "type": "spinnen"
+    },
+    {
+      "x": 240,
+      "y": 126,
+      "r": 7.7,
+      "tier": "rand",
+      "type": "spinnen"
+    },
+    {
+      "x": 206,
+      "y": 91,
+      "r": 5.0,
+      "tier": "kern",
+      "type": "spinnen"
+    },
+    {
+      "x": 113,
+      "y": 78,
+      "r": 6.8,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 0,
+      "y": 81,
+      "r": 7.5,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 17,
+      "y": 100,
+      "r": 6.7,
+      "tier": "kern",
+      "type": "spinnen"
+    },
+    {
+      "x": 146,
+      "y": 110,
+      "r": 7.1,
+      "tier": "kern",
+      "type": "spinnen"
+    },
+    {
+      "x": 114,
+      "y": 139,
+      "r": 7.4,
+      "tier": "rand",
+      "type": "spinnen"
+    },
+    {
+      "x": 150,
+      "y": 94,
+      "r": 7.2,
+      "tier": "kern",
+      "type": "spinnen"
+    },
+    {
+      "x": 50,
+      "y": 47,
+      "r": 6.8,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 46,
+      "y": 60,
+      "r": 5.5,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 47,
+      "y": 70,
+      "r": 5.6,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 18,
+      "y": 81,
+      "r": 5.3,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 248,
+      "y": 156,
+      "r": 5.8,
+      "tier": "rand",
+      "type": "spinnen"
+    },
+    {
+      "x": 206,
+      "y": 77,
+      "r": 6.6,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 189,
+      "y": 162,
+      "r": 7.2,
+      "tier": "rand",
+      "type": "spinnen"
+    },
+    {
+      "x": 53,
+      "y": 139,
+      "r": 6.7,
+      "tier": "rand",
+      "type": "spinnen"
+    },
+    {
+      "x": 210,
+      "y": 160,
+      "r": 6.4,
+      "tier": "rand",
+      "type": "spinnen"
+    },
+    {
+      "x": 65,
+      "y": 78,
+      "r": 4.9,
+      "tier": "kern",
+      "type": "ruine"
+    },
+    {
+      "x": 81,
+      "y": 89,
+      "r": 6.4,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 230,
+      "y": 157,
+      "r": 5.2,
+      "tier": "rand",
+      "type": "banditen"
+    },
+    {
+      "x": 165,
+      "y": 164,
+      "r": 6.2,
+      "tier": "rand",
+      "type": "banditen"
+    },
+    {
+      "x": 83,
+      "y": 77,
+      "r": 4.8,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 106,
+      "y": 105,
+      "r": 4.8,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 39,
+      "y": 18,
+      "r": 5.2,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 179,
+      "y": 74,
+      "r": 5.4,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 26,
+      "y": 19,
+      "r": 4.9,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 46,
+      "y": 27,
+      "r": 3.7,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 45,
+      "y": 35,
+      "r": 5.3,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 138,
+      "y": 74,
+      "r": 4.8,
+      "tier": "kern",
+      "type": "untote"
+    },
+    {
+      "x": 235,
+      "y": 94,
+      "r": 3.7,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 170,
+      "y": 137,
+      "r": 4.8,
+      "tier": "rand",
+      "type": "banditen"
+    },
+    {
+      "x": 21,
+      "y": 26,
+      "r": 4.4,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 232,
+      "y": 46,
+      "r": 5.0,
+      "tier": "kern",
+      "type": "banditen"
+    },
+    {
+      "x": 147,
+      "y": 123,
+      "r": 4.4,
+      "tier": "rand",
+      "type": "banditen"
+    },
+    {
+      "x": 11,
+      "y": 158,
+      "r": 5.6,
+      "tier": "rand",
+      "type": "banditen"
+    },
+    {
+      "x": 67,
+      "y": 165,
+      "r": 5.6,
+      "tier": "rand",
+      "type": "banditen"
+    }
+  ],
+  "boss": {
+    "x": 214,
+    "y": 19,
+    "r": 10.9
+  },
+  "town": {
+    "x": 76,
+    "y": 126
+  },
+  "hot_springs": [
+    {
+      "x": 113,
+      "y": 44
+    },
+    {
+      "x": 105,
+      "y": 51
+    },
+    {
+      "x": 93,
+      "y": 44
+    },
+    {
+      "x": 93,
+      "y": 28
+    },
+    {
+      "x": 106,
+      "y": 32
+    }
+  ],
+  "valley_heads": [
+    {
+      "x": 33,
+      "y": 29
+    },
+    {
+      "x": 102,
+      "y": 39
+    },
+    {
+      "x": 155,
+      "y": 32
+    },
+    {
+      "x": 214,
+      "y": 19
+    }
+  ]
+}

@@ -1,0 +1,433 @@
+{
+  "tile_size": 32,
+  "columns": 16,
+  "count": 268,
+  "ids": {
+    "grass_1": 0,
+    "grass_2": 1,
+    "grass_3": 2,
+    "grass_4": 3,
+    "grass_flowers_red": 4,
+    "grass_flowers_blue": 5,
+    "grass_flowers_yellow": 6,
+    "dirt_1": 7,
+    "dirt_2": 8,
+    "cobble_1": 9,
+    "cobble_2": 10,
+    "arena_1": 11,
+    "arena_2": 12,
+    "water": 13,
+    "rock": 14,
+    "rock_2": 15,
+    "rock_3": 16,
+    "sand_1": 17,
+    "sand_2": 18,
+    "farm_1": 19,
+    "farm_2": 20,
+    "crops": 21,
+    "fence_h": 22,
+    "fence_v": 23,
+    "bridge_h": 24,
+    "bridge_v": 25,
+    "water_grass_0": 26,
+    "water_grass_1": 27,
+    "water_grass_2": 28,
+    "water_grass_3": 29,
+    "water_grass_4": 30,
+    "water_grass_5": 31,
+    "water_grass_6": 32,
+    "water_grass_7": 33,
+    "water_grass_8": 34,
+    "water_grass_9": 35,
+    "water_grass_10": 36,
+    "water_grass_11": 37,
+    "water_grass_12": 38,
+    "water_grass_13": 39,
+    "water_grass_14": 40,
+    "water_grass_15": 41,
+    "dirt_grass_0": 42,
+    "dirt_grass_1": 43,
+    "dirt_grass_2": 44,
+    "dirt_grass_3": 45,
+    "dirt_grass_4": 46,
+    "dirt_grass_5": 47,
+    "dirt_grass_6": 48,
+    "dirt_grass_7": 49,
+    "dirt_grass_8": 50,
+    "dirt_grass_9": 51,
+    "dirt_grass_10": 52,
+    "dirt_grass_11": 53,
+    "dirt_grass_12": 54,
+    "dirt_grass_13": 55,
+    "dirt_grass_14": 56,
+    "dirt_grass_15": 57,
+    "cobble_grass_0": 58,
+    "cobble_grass_1": 59,
+    "cobble_grass_2": 60,
+    "cobble_grass_3": 61,
+    "cobble_grass_4": 62,
+    "cobble_grass_5": 63,
+    "cobble_grass_6": 64,
+    "cobble_grass_7": 65,
+    "cobble_grass_8": 66,
+    "cobble_grass_9": 67,
+    "cobble_grass_10": 68,
+    "cobble_grass_11": 69,
+    "cobble_grass_12": 70,
+    "cobble_grass_13": 71,
+    "cobble_grass_14": 72,
+    "cobble_grass_15": 73,
+    "arena_grass_0": 74,
+    "arena_grass_1": 75,
+    "arena_grass_2": 76,
+    "arena_grass_3": 77,
+    "arena_grass_4": 78,
+    "arena_grass_5": 79,
+    "arena_grass_6": 80,
+    "arena_grass_7": 81,
+    "arena_grass_8": 82,
+    "arena_grass_9": 83,
+    "arena_grass_10": 84,
+    "arena_grass_11": 85,
+    "arena_grass_12": 86,
+    "arena_grass_13": 87,
+    "arena_grass_14": 88,
+    "arena_grass_15": 89,
+    "cliff_water_0": 90,
+    "cliff_water_1": 91,
+    "cliff_water_2": 92,
+    "cliff_water_3": 93,
+    "cliff_water_4": 94,
+    "cliff_water_5": 95,
+    "cliff_water_6": 96,
+    "cliff_water_7": 97,
+    "cliff_water_8": 98,
+    "cliff_water_9": 99,
+    "cliff_water_10": 100,
+    "cliff_water_11": 101,
+    "cliff_water_12": 102,
+    "cliff_water_13": 103,
+    "cliff_water_14": 104,
+    "cliff_water_15": 105,
+    "rock_grass_0": 106,
+    "rock_grass_1": 107,
+    "rock_grass_2": 108,
+    "rock_grass_3": 109,
+    "rock_grass_4": 110,
+    "rock_grass_5": 111,
+    "rock_grass_6": 112,
+    "rock_grass_7": 113,
+    "rock_grass_8": 114,
+    "rock_grass_9": 115,
+    "rock_grass_10": 116,
+    "rock_grass_11": 117,
+    "rock_grass_12": 118,
+    "rock_grass_13": 119,
+    "rock_grass_14": 120,
+    "rock_grass_15": 121,
+    "sand_grass_0": 122,
+    "sand_grass_1": 123,
+    "sand_grass_2": 124,
+    "sand_grass_3": 125,
+    "sand_grass_4": 126,
+    "sand_grass_5": 127,
+    "sand_grass_6": 128,
+    "sand_grass_7": 129,
+    "sand_grass_8": 130,
+    "sand_grass_9": 131,
+    "sand_grass_10": 132,
+    "sand_grass_11": 133,
+    "sand_grass_12": 134,
+    "sand_grass_13": 135,
+    "sand_grass_14": 136,
+    "sand_grass_15": 137,
+    "farm_grass_0": 138,
+    "farm_grass_1": 139,
+    "farm_grass_2": 140,
+    "farm_grass_3": 141,
+    "farm_grass_4": 142,
+    "farm_grass_5": 143,
+    "farm_grass_6": 144,
+    "farm_grass_7": 145,
+    "farm_grass_8": 146,
+    "farm_grass_9": 147,
+    "farm_grass_10": 148,
+    "farm_grass_11": 149,
+    "farm_grass_12": 150,
+    "farm_grass_13": 151,
+    "farm_grass_14": 152,
+    "farm_grass_15": 153,
+    "bush": 154,
+    "fern": 155,
+    "mushrooms": 156,
+    "log": 157,
+    "boulder": 158,
+    "bones": 159,
+    "skull": 160,
+    "campfire": 161,
+    "lantern": 162,
+    "signpost": 163,
+    "tall_grass": 164
+  },
+  "sprites": {
+    "tree_a": {
+      "w": 2,
+      "h": 2,
+      "tiles": [
+        [
+          165,
+          166
+        ],
+        [
+          167,
+          168
+        ]
+      ]
+    },
+    "tree_b": {
+      "w": 2,
+      "h": 2,
+      "tiles": [
+        [
+          169,
+          170
+        ],
+        [
+          171,
+          172
+        ]
+      ]
+    },
+    "tree_c": {
+      "w": 2,
+      "h": 2,
+      "tiles": [
+        [
+          173,
+          174
+        ],
+        [
+          175,
+          176
+        ]
+      ]
+    },
+    "pine_a": {
+      "w": 1,
+      "h": 2,
+      "tiles": [
+        [
+          177
+        ],
+        [
+          178
+        ]
+      ]
+    },
+    "pine_b": {
+      "w": 1,
+      "h": 2,
+      "tiles": [
+        [
+          179
+        ],
+        [
+          180
+        ]
+      ]
+    },
+    "tent": {
+      "w": 2,
+      "h": 2,
+      "tiles": [
+        [
+          181,
+          182
+        ],
+        [
+          183,
+          184
+        ]
+      ]
+    },
+    "totem": {
+      "w": 1,
+      "h": 2,
+      "tiles": [
+        [
+          185
+        ],
+        [
+          186
+        ]
+      ]
+    },
+    "well": {
+      "w": 2,
+      "h": 2,
+      "tiles": [
+        [
+          187,
+          188
+        ],
+        [
+          189,
+          190
+        ]
+      ]
+    },
+    "hotspring": {
+      "w": 3,
+      "h": 3,
+      "tiles": [
+        [
+          191,
+          192,
+          193
+        ],
+        [
+          194,
+          195,
+          196
+        ],
+        [
+          197,
+          198,
+          199
+        ]
+      ]
+    },
+    "house_a": {
+      "w": 5,
+      "h": 4,
+      "tiles": [
+        [
+          200,
+          201,
+          202,
+          203,
+          204
+        ],
+        [
+          205,
+          206,
+          207,
+          208,
+          209
+        ],
+        [
+          210,
+          211,
+          212,
+          213,
+          214
+        ],
+        [
+          215,
+          216,
+          217,
+          218,
+          219
+        ]
+      ]
+    },
+    "house_b": {
+      "w": 5,
+      "h": 4,
+      "tiles": [
+        [
+          220,
+          221,
+          222,
+          223,
+          224
+        ],
+        [
+          225,
+          226,
+          227,
+          228,
+          229
+        ],
+        [
+          230,
+          231,
+          232,
+          233,
+          234
+        ],
+        [
+          235,
+          236,
+          237,
+          238,
+          239
+        ]
+      ]
+    },
+    "house_c": {
+      "w": 4,
+      "h": 4,
+      "tiles": [
+        [
+          240,
+          241,
+          242,
+          243
+        ],
+        [
+          244,
+          245,
+          246,
+          247
+        ],
+        [
+          248,
+          249,
+          250,
+          251
+        ],
+        [
+          252,
+          253,
+          254,
+          255
+        ]
+      ]
+    },
+    "tower": {
+      "w": 2,
+      "h": 3,
+      "tiles": [
+        [
+          256,
+          257
+        ],
+        [
+          258,
+          259
+        ],
+        [
+          260,
+          261
+        ]
+      ]
+    },
+    "gate": {
+      "w": 3,
+      "h": 2,
+      "tiles": [
+        [
+          262,
+          263,
+          264
+        ],
+        [
+          265,
+          266,
+          267
+        ]
+      ]
+    }
+  }
+}

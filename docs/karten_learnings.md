@@ -591,6 +591,55 @@ Verteilung auf 45 von 85 Lagern zu „bestien". Schwellen relativ zu `N`.
 
 ---
 
+## 5o. Frostfjord: Rückgrat mit Rippen (dritte Topologie)
+
+`mapgen/zone_fjord.py` + `tools/make_tileset_ice.py`. Bewusst weder Netz noch
+radial:
+
+| Zone | Struktur | Spielgefühl |
+|---|---|---|
+| `zone_compose` | Wegenetz **mit Schleifen** | Rundwege, freies Streifen |
+| `zone_caldera` | **radial** um den Krater | Progression nach innen |
+| `zone_fjord` | **Rückgrat + Rippen** | Täler sind Sackgassen, man muss zurück |
+
+Aufbau: begehbares Packeis im Süden (mit tödlichen offenen Rinnen), darüber
+die Küstenstraße als sichere Achse, im Norden das Gletschermassiv. Vier
+Täler schneiden hinein und enden je in einem Kessel — Hafensiedlung mit
+Eisbruch, **heiße Quellen** (die warme Oase, farblicher Gegenpol), ein
+Spaltenfeld und der Thronkessel mit dem Boss. Stufe der Lager richtet sich
+nach der **Taltiefe**.
+
+### Schnee-Handwerk
+
+* **Schneeschatten sind BLAU**, nie grau — grau lässt Schnee schmutzig wirken.
+* Jedes Objekt braucht eine **helle Oberkante** (Schneeauflage) plus blauen
+  Schlagschatten. Das allein erzeugt die Plastik.
+* **Warme Akzente sind das einzige Gelb im Bild**: Fenster, Feuer, Turmfeuer.
+  Sie tragen die ganze Stimmung, weil ringsum alles kalt ist.
+* Zertretener Lagerboden muss **kühlgrau** sein. Mit warmem Grau wirken die
+  Lager wie Schlammpfützen im Schnee — der auffälligste Fehler im ersten
+  Durchgang.
+
+### Drei Fehler, die ich korrigieren musste
+
+**Schnee, Packeis und Gletscher waren alle gleich hell.** Dieselbe
+Helligkeitsregel wie bei der Feuerzone, nur andersherum übersehen: bei einem
+hellen Thema verschwimmt alles im Weiß. Jetzt Schnee hell, Packeis mittelblau,
+Gletscher dunkel — und der Gletscher zusätzlich über **Struktur**
+unterschieden (breite Spalten mit weißer Lippe), nicht nur über den Ton. Nur
+umgefärbt sah die Eiswand aus wie Wasser.
+
+**Das Massiv fraß 44 % der Karte** und die Täler wurden zu dünnen Stangen.
+Höhengliederung neu: Massiv ~14 %, Küstenland ~40 %, Fjord ~28 %.
+
+**Täler und Wege sahen aus wie Fahrstuhlschächte.** Ein `curve()`-Bogen ist
+über 50 Tiles praktisch gerade, und ein Versatz von 4 Tiles auf 35 Tiles
+Länge ist unsichtbar. Nötig sind **zwei überlagerte Wellen** unterschiedlicher
+Frequenz mit Hüllkurve (an den Enden fixiert, in der Mitte maximal) — und
+Täler müssen sich **zur Mündung weiten**, sonst wirken sie wie Röhren.
+
+---
+
 ## 6. Layout-Regeln fürs Gameplay
 
 Der Spieler **läuft** auf dieser Karte — das Layout muss das hergeben:
